@@ -1,0 +1,42 @@
+# description: Preserve validated TOKENIZE properties and English token lifetimes.
+SET NAMES utf8mb4;
+SELECT TOKENIZE('南京市长江大桥', 'ik') AS tokens;
+SELECT TOKENIZE('南京市长江大桥', 'ik', '[{"output":"all"},{"additional_args":[{"ik_mode":"max_word"}]}]') AS tokens;
+SELECT TOKENIZE('The database DATABASE a ABC abc foo-bar', 'beng', '[{"output":"all"},{"additional_args":[{"min_token_size":1},{"max_token_size":20}]}]') AS tokens;
+SELECT TOKENIZE('The database DATABASE a ABC abc foo-bar', 'beng', '[{"output":"all"},{"additional_args":[{"min_token_size":6}]}]') AS tokens;
+SELECT TOKENIZE('résumé resume Résumé RESUME café CAFE' COLLATE utf8mb4_unicode_ci, 'beng', '[{"output":"all"}]') AS tokens;
+SELECT TOKENIZE('ＡＢＣ 南京市', 'ngram', '[{"output":"all"},{"additional_args":[{"ngram_token_size":1}]}]') AS tokens;
+SELECT TOKENIZE('南京市', 'ngram2', '[{"output":"all"},{"additional_args":[{"min_ngram_size":1},{"max_ngram_size":4}]}]') AS tokens;
+SELECT TOKENIZE('a ab abc database', 'space', '[{"output":"all"},{"additional_args":[{"min_token_size":1}]}]') AS tokens;
+--error 1210
+SELECT TOKENIZE('database', 'beng', '[{"additional_args":[{"min_token_size":0}]}]');
+--error 1210
+SELECT TOKENIZE('南京市', 'ik', '[{"additional_args":[{"ik_mode":"invalid"}]}]');
+
+--disable_warnings
+DROP DATABASE IF EXISTS fts_token_config;
+--enable_warnings
+CREATE DATABASE fts_token_config;
+USE fts_token_config;
+CREATE TABLE params(id INT PRIMARY KEY, body VARCHAR(4096), parser VARCHAR(32), props VARCHAR(2048));
+INSERT INTO params VALUES
+  (1, '南京市长江大桥', 'ik', '[{"additional_args":[{"ik_mode":"smart"}]}]'),
+  (2, '南京市长江大桥', 'ik', '[{"additional_args":[{"ik_mode":"max_word"}]}]'),
+  (3, 'The database DATABASE a ABC abc', 'beng', '[{"additional_args":[{"min_token_size":1}]}]'),
+  (4, 'The database DATABASE a ABC abc', 'beng', '[{"additional_args":[{"min_token_size":6}]}]'),
+  (5, 'ＡＢＣ 南京市', 'ngram', '[{"additional_args":[{"ngram_token_size":1}]}]'),
+  (6, 'ＡＢＣ 南京市', 'ngram2', '[]'),
+  (7, 'résumé RESUME café CAFE', 'space', '[]');
+SELECT id,TOKENIZE(body,parser,props) AS tokens FROM params ORDER BY id;
+SELECT id,TOKENIZE(body,parser,props) AS tokens FROM params ORDER BY id DESC;
+PREPARE tokens FROM 'SELECT TOKENIZE(?,?,?) AS tokens';
+SET @body='The database DATABASE a ABC abc',@parser='beng',@props='[{"additional_args":[{"min_token_size":1}]}]';
+EXECUTE tokens USING @body,@parser,@props;
+SET @props='[{"additional_args":[{"min_token_size":6}]}]';
+EXECUTE tokens USING @body,@parser,@props;
+SET @body='南京市长江大桥',@parser='ik',@props='[{"additional_args":[{"ik_mode":"smart"}]}]';
+EXECUTE tokens USING @body,@parser,@props;
+SET @props='[]';
+EXECUTE tokens USING @body,@parser,@props;
+DEALLOCATE PREPARE tokens;
+DROP DATABASE fts_token_config;

@@ -11987,6 +11987,26 @@ int ObLogPlan::construct_startup_filter_for_limit(ObRawExpr *limit_expr, ObLogic
   return ret;
 }
 
+// A natural-language match has a positive score for every matching document.
+// Only its boolean conversion can use the posting-list union without ranking.
+static int check_match_score_use(ObRawExpr *expr,
+                                 const ObRawExpr *match_expr,
+                                 bool &needs_score)
+{
+  int ret = OB_SUCCESS;
+  if (OB_ISNULL(expr)) {
+    ret = OB_ERR_UNEXPECTED;
+  } else if (expr == match_expr) {
+    needs_score = true;
+  } else {
+    for (int64_t i = 0; OB_SUCC(ret) && !needs_score && i < expr->get_param_count(); ++i) {
+      if (OB_FAIL(SMART_CALL(check_match_score_use(expr->get_param_expr(i), match_expr, needs_score)))) {
+      }
+    }
+  }
+  return ret;
+}
+
 int ObLogPlan::prepare_text_retrieval_scan(const ObIArray<ObRawExpr *> &scan_match_exprs,
                                            const ObIArray<ObRawExpr *> &scan_match_filters,
                                            const ObIArray<ObRawExpr *> &all_match_filters,
@@ -12039,12 +12059,52 @@ int ObLogPlan::prepare_text_retrieval_scan(const ObIArray<ObRawExpr *> &scan_mat
     ObTextRetrievalInfo &tr_info = table_scan->get_text_retrieval_info();
     tr_info.match_expr_ = match_against;
     tr_info.pushdown_match_filter_ = match_pred;
+    // Restrict this path to a single base table with the default natural-language
+    // semantics without a main-table lookup. Ordered queries, score thresholds,
+    // boosts, subqueries and functional lookups retain the existing pipeline.
+    if (get_stmt()->is_select_stmt() && get_stmt()->get_table_items().count() == 1
+        && get_stmt()->get_table_items().at(0)->is_basic_table()
+        && get_stmt()->get_order_items().empty()
+        && !get_stmt()->has_limit()
+        && !table_scan->get_index_back()
+        && get_stmt()->get_subquery_exprs().empty()
+        && NATURAL_LANGUAGE_MODE == match_against->get_mode_flag()
+        && match_against->get_columns_boosts().empty()
+        && OB_ISNULL(match_against->get_param_text_expr())
+        && T_OP_BOOL == match_pred->get_expr_type()
+        && match_pred->get_param_count() == 1 && match_pred->get_param_expr(0) == match_against) {
+      ObSEArray<ObRawExpr *, 16> stmt_exprs;
+      ObStmtExprGetter visitor;
+      visitor.set_relation_scope();
+      visitor.remove_scope(SCOPE_WHERE);
+      bool needs_score = false;
+      // Even a boolean projection needs MATCH's value. Only WHERE predicates
+      // can consume the posting-list union without producing that expression.
+      if (OB_FAIL(get_stmt()->get_relation_exprs(stmt_exprs, visitor))) {
+      }
+      for (int64_t i = 0; OB_SUCC(ret) && !needs_score && i < stmt_exprs.count(); ++i) {
+        if (OB_FAIL(check_match_score_use(stmt_exprs.at(i), match_against, needs_score))) {
+        }
+      }
+      const ObIArray<ObRawExpr *> &conditions = get_stmt()->get_condition_exprs();
+      for (int64_t i = 0; OB_SUCC(ret) && !needs_score && i < conditions.count(); ++i) {
+        // Only this exact predicate is removed from the scan filters below.
+        if (conditions.at(i) != match_pred
+            && OB_FAIL(check_match_score_use(conditions.at(i), match_against, needs_score))) {
+        }
+      }
+      if (OB_SUCC(ret) && !needs_score) {
+        tr_info.need_calc_relevance_ = false;
+        tr_info.pushdown_match_filter_ = nullptr;
+      }
+    }
     // The mapping table is absent when the data-table rowkey is used as the document ID.
     table_scan->set_doc_id_index_table_id(tr_info.doc_id_idx_tid_);
     if (table_scan->is_vec_adaptive_scan() || table_scan->is_vec_idx_scan_post_filter()) {
       table_scan->set_rowkey_doc_table_id(tr_info.rowkey_idx_tid_);
     }
-    if (OB_FAIL(table_scan->set_is_skip_rowkey_doc(tr_info.doc_id_idx_tid_ == OB_INVALID_ID))) {
+    if (OB_FAIL(ret)) {
+    } else if (OB_FAIL(table_scan->set_is_skip_rowkey_doc(tr_info.doc_id_idx_tid_ == OB_INVALID_ID))) {
     } else if (OB_FAIL(table_scan->set_is_skip_rowkey_doc(tr_info.rowkey_idx_tid_ == OB_INVALID_ID))) {
     }
   }

@@ -94,6 +94,15 @@ protected:
     }
     int get_error_code() { return common::OB_SUCCESS; }
   };
+  struct SearchStats {
+    int64_t merged_doc_cnt_ = 0;
+    int64_t heap_insert_cnt_ = 0;
+    int64_t heap_replace_cnt_ = 0;
+    int64_t heap_reject_cnt_ = 0;
+    int64_t range_cache_hit_cnt_ = 0;
+    TO_STRING_KV(K_(merged_doc_cnt), K_(heap_insert_cnt),
+                K_(heap_replace_cnt), K_(heap_reject_cnt), K_(range_cache_hit_cnt));
+  };
   typedef common::ObBinaryHeap<TopKItem, TopKItemCmp> TopKHeap;
 
   DISALLOW_COPY_AND_ASSIGN(ObSRBMWIterImpl);
@@ -105,6 +114,12 @@ protected:
   ObDomainIdCmp domain_id_cmp_;
   ObFixedArray<ObDocIdExt, ObIAllocator> id_cache_;
   BMWStatus status_;
+  SearchStats search_stats_;
+  ObDocIdExt candidate_range_begin_;
+  ObDocIdExt candidate_range_end_;
+  uint64_t candidate_range_mask_;
+  double candidate_range_score_;
+  bool candidate_range_valid_;
 };
 
 

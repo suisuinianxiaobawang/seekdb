@@ -1,0 +1,78 @@
+SET NAMES utf8mb4;
+SELECT TOKENIZE('南京市长江大桥', 'ik') AS tokens;
+tokens
+["长江大桥", "南京市"]
+SELECT TOKENIZE('南京市长江大桥', 'ik', '[{"output":"all"},{"additional_args":[{"ik_mode":"max_word"}]}]') AS tokens;
+tokens
+{"tokens": [{"长江大桥": 1}, {"市长": 1}, {"南京市": 1}, {"南京": 1}, {"长江": 1}, {"大桥": 1}], "doc_len": 6}
+SELECT TOKENIZE('The database DATABASE a ABC abc foo-bar', 'beng', '[{"output":"all"},{"additional_args":[{"min_token_size":1},{"max_token_size":20}]}]') AS tokens;
+tokens
+{"tokens": [{"bar": 1}, {"database": 2}, {"abc": 2}, {"foo": 1}], "doc_len": 6}
+SELECT TOKENIZE('The database DATABASE a ABC abc foo-bar', 'beng', '[{"output":"all"},{"additional_args":[{"min_token_size":6}]}]') AS tokens;
+tokens
+{"tokens": [{"database": 2}], "doc_len": 2}
+SELECT TOKENIZE('résumé resume Résumé RESUME café CAFE' COLLATE utf8mb4_unicode_ci, 'beng', '[{"output":"all"}]') AS tokens;
+tokens
+{"tokens": [{"cafe": 2}, {"resume": 4}], "doc_len": 6}
+SELECT TOKENIZE('ＡＢＣ 南京市', 'ngram', '[{"output":"all"},{"additional_args":[{"ngram_token_size":1}]}]') AS tokens;
+tokens
+{"tokens": [{"ｃ": 1}, {"ａ": 1}, {"ｂ": 1}, {"京": 1}, {"南": 1}, {"市": 1}], "doc_len": 6}
+SELECT TOKENIZE('南京市', 'ngram2', '[{"output":"all"},{"additional_args":[{"min_ngram_size":1},{"max_ngram_size":4}]}]') AS tokens;
+tokens
+{"tokens": [{"京市": 1}, {"京": 1}, {"南京市": 1}, {"南京": 1}, {"南": 1}, {"市": 1}], "doc_len": 6}
+SELECT TOKENIZE('a ab abc database', 'space', '[{"output":"all"},{"additional_args":[{"min_token_size":1}]}]') AS tokens;
+tokens
+{"tokens": [{"ab": 1}, {"database": 1}, {"abc": 1}], "doc_len": 3}
+SELECT TOKENIZE('database', 'beng', '[{"additional_args":[{"min_token_size":0}]}]');
+ERROR HY000: Incorrect arguments to the min_token_size must be in [1, 16]
+SELECT TOKENIZE('南京市', 'ik', '[{"additional_args":[{"ik_mode":"invalid"}]}]');
+ERROR HY000: Incorrect arguments to the ik_mode should be max_word or smart
+DROP DATABASE IF EXISTS fts_token_config;
+CREATE DATABASE fts_token_config;
+USE fts_token_config;
+CREATE TABLE params(id INT PRIMARY KEY, body VARCHAR(4096), parser VARCHAR(32), props VARCHAR(2048));
+INSERT INTO params VALUES
+(1, '南京市长江大桥', 'ik', '[{"additional_args":[{"ik_mode":"smart"}]}]'),
+(2, '南京市长江大桥', 'ik', '[{"additional_args":[{"ik_mode":"max_word"}]}]'),
+(3, 'The database DATABASE a ABC abc', 'beng', '[{"additional_args":[{"min_token_size":1}]}]'),
+(4, 'The database DATABASE a ABC abc', 'beng', '[{"additional_args":[{"min_token_size":6}]}]'),
+(5, 'ＡＢＣ 南京市', 'ngram', '[{"additional_args":[{"ngram_token_size":1}]}]'),
+(6, 'ＡＢＣ 南京市', 'ngram2', '[]'),
+(7, 'résumé RESUME café CAFE', 'space', '[]');
+SELECT id,TOKENIZE(body,parser,props) AS tokens FROM params ORDER BY id;
+id	tokens
+1	["长江大桥", "南京市"]
+2	["长江大桥", "市长", "南京市", "南京", "长江", "大桥"]
+3	["database", "abc"]
+4	["database"]
+5	["ｃ", "ａ", "ｂ", "京", "南", "市"]
+6	["京市", "南京市", "南京", "ｂｃ", "ａｂｃ", "ａｂ"]
+7	["cafe", "resume"]
+SELECT id,TOKENIZE(body,parser,props) AS tokens FROM params ORDER BY id DESC;
+id	tokens
+7	["cafe", "resume"]
+6	["京市", "南京市", "南京", "ｂｃ", "ａｂｃ", "ａｂ"]
+5	["ｃ", "ａ", "ｂ", "京", "南", "市"]
+4	["database"]
+3	["database", "abc"]
+2	["长江大桥", "市长", "南京市", "南京", "长江", "大桥"]
+1	["长江大桥", "南京市"]
+PREPARE tokens FROM 'SELECT TOKENIZE(?,?,?) AS tokens';
+SET @body='The database DATABASE a ABC abc',@parser='beng',@props='[{"additional_args":[{"min_token_size":1}]}]';
+EXECUTE tokens USING @body,@parser,@props;
+tokens
+["database", "abc"]
+SET @props='[{"additional_args":[{"min_token_size":6}]}]';
+EXECUTE tokens USING @body,@parser,@props;
+tokens
+["database"]
+SET @body='南京市长江大桥',@parser='ik',@props='[{"additional_args":[{"ik_mode":"smart"}]}]';
+EXECUTE tokens USING @body,@parser,@props;
+tokens
+["长江大桥", "南京市"]
+SET @props='[]';
+EXECUTE tokens USING @body,@parser,@props;
+tokens
+["长江大桥", "南京市"]
+DEALLOCATE PREPARE tokens;
+DROP DATABASE fts_token_config;

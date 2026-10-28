@@ -130,6 +130,8 @@ public:
   virtual void reset() override;
   virtual void reuse() override;
   virtual int get_next(ObDatum &next_token, int64_t &token_freq) override;
+  // The caller owns the normalized token's lifetime through this allocator.
+  int get_next(ObDatum &next_token, int64_t &token_freq, ObIAllocator &allocator);
 private:
   ObArenaAllocator norm_allocator_;
 };

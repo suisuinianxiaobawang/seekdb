@@ -380,24 +380,23 @@ int ObFTRangeDict::match_with_hit(const ObString &single_word,
 
 int ObFTRangeDict::find_first_char_range(const ObString &single_word, ObIFTDict *&dict) const
 {
-  int ret = OB_SUCCESS;
-  bool found = false;
-  for (int i = 0; OB_SUCC(ret) && !found && i < range_dicts_.size(); ++i) {
-    if (ObCharset::strcmp(ObCollationType::CS_TYPE_UTF8MB4_BIN,
-                          range_dicts_[i].start_.get_word(),
-                          single_word)
-            <= 0
-        && ObCharset::strcmp(ObCollationType::CS_TYPE_UTF8MB4_BIN,
-                             range_dicts_[i].end_.get_word(),
-                             single_word)
-               >= 0) {
-      dict = range_dicts_[i].dict_;
-      found = true;
+  // Ranges are built in dictionary order without splitting a first character.
+  // UTF8MB4_BIN compares bytes and then length, just like ObString::compare.
+  const int64_t count = range_dicts_.size();
+  int64_t left = 0;
+  int64_t right = count;
+  while (left < right) {
+    const int64_t mid = left + (right - left) / 2;
+    if (range_dicts_[mid].end_.get_word().compare(single_word) < 0) {
+      left = mid + 1;
+    } else {
+      right = mid;
     }
   }
-  if (!found) {
-    // not found, dis match
-    ret = OB_ENTRY_NOT_EXIST;
+  int ret = OB_ENTRY_NOT_EXIST;
+  if (left < count && range_dicts_[left].start_.get_word().compare(single_word) <= 0) {
+    dict = range_dicts_[left].dict_;
+    ret = OB_SUCCESS;
   }
   return ret;
 }

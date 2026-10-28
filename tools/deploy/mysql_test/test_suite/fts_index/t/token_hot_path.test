@@ -1,0 +1,54 @@
+# description: Preserve character classes, collation-equivalent spellings and term frequencies.
+
+SET NAMES utf8mb4;
+
+SELECT TOKENIZE('南京市长江大桥', 'ik', '[{"output":"all"}]') AS tokens;
+SELECT TOKENIZE('南京市长江大桥', 'ik', '[{"output":"all"},{"additional_args":[{"ik_mode":"smart"}]}]') AS tokens;
+SELECT TOKENIZE('一千二百三十四个苹果 12.5公斤 3,000元', 'ik', '[{"output":"all"}]') AS tokens;
+SELECT TOKENIZE('ＡＢＣａｂｃ１２３，．－＠＿', 'ik', '[{"output":"all"}]') AS tokens;
+SELECT TOKENIZE('かなカナ한글中文㐀龿豈﫿 😀𠀀𠮷🚀', 'ik', '[{"output":"all"}]') AS tokens;
+SELECT TOKENIZE('C++ C# foo@example.com foo-bar _under_ 3.1415', 'ik', '[{"output":"all"}]') AS tokens;
+SELECT TOKENIZE('', 'ik', '[{"output":"all"}]') AS tokens;
+SELECT TOKENIZE('南京市长江大桥。南京市长江大桥。南京市长江大桥。南京市长江大桥。南京市长江大桥。南京市长江大桥。南京市长江大桥。南京市长江大桥。南京市长江大桥。南京市长江大桥。南京市长江大桥。南京市长江大桥。南京市长江大桥。南京市长江大桥。南京市长江大桥。南京市长江大桥。南京市长江大桥。南京市长江大桥。南京市长江大桥。南京市长江大桥。南京市长江大桥。南京市长江大桥。南京市长江大桥。南京市长江大桥。南京市长江大桥。南京市长江大桥。南京市长江大桥。南京市长江大桥。南京市长江大桥。南京市长江大桥。南京市长江大桥。南京市长江大桥。南京市长江大桥。南京市长江大桥。南京市长江大桥。南京市长江大桥。南京市长江大桥。南京市长江大桥。南京市长江大桥。南京市长江大桥。南京市长江大桥。南京市长江大桥。南京市长江大桥。南京市长江大桥。南京市长江大桥。南京市长江大桥。南京市长江大桥。南京市长江大桥。南京市长江大桥。南京市长江大桥。南京市长江大桥。南京市长江大桥。南京市长江大桥。南京市长江大桥。南京市长江大桥。南京市长江大桥。南京市长江大桥。南京市长江大桥。南京市长江大桥。南京市长江大桥。南京市长江大桥。南京市长江大桥。南京市长江大桥。南京市长江大桥。南京市长江大桥。南京市长江大桥。南京市长江大桥。南京市长江大桥。南京市长江大桥。南京市长江大桥。南京市长江大桥。南京市长江大桥。南京市长江大桥。南京市长江大桥。南京市长江大桥。南京市长江大桥。南京市长江大桥。南京市长江大桥。南京市长江大桥。南京市长江大桥。南京市长江大桥。南京市长江大桥。南京市长江大桥。南京市长江大桥。南京市长江大桥。南京市长江大桥。南京市长江大桥。南京市长江大桥。南京市长江大桥。南京市长江大桥。南京市长江大桥。南京市长江大桥。南京市长江大桥。南京市长江大桥。南京市长江大桥。南京市长江大桥。南京市长江大桥。南京市长江大桥。南京市长江大桥。南京市长江大桥。南京市长江大桥。南京市长江大桥。南京市长江大桥。南京市长江大桥。南京市长江大桥。南京市长江大桥。南京市长江大桥。南京市长江大桥。南京市长江大桥。南京市长江大桥。南京市长江大桥。南京市长江大桥。南京市长江大桥。南京市长江大桥。南京市长江大桥。南京市长江大桥。南京市长江大桥。南京市长江大桥。南京市长江大桥。南京市长江大桥。南京市长江大桥。南京市长江大桥。南京市长江大桥。南京市长江大桥。南京市长江大桥。南京市长江大桥。南京市长江大桥。南京市长江大桥。南京市长江大桥。南京市长江大桥。南京市长江大桥。南京市长江大桥。南京市长江大桥。南京市长江大桥。南京市长江大桥。南京市长江大桥。南京市长江大桥。南京市长江大桥。南京市长江大桥。南京市长江大桥。南京市长江大桥。南京市长江大桥。南京市长江大桥。南京市长江大桥。南京市长江大桥。南京市长江大桥。南京市长江大桥。南京市长江大桥。南京市长江大桥。南京市长江大桥。南京市长江大桥。南京市长江大桥。南京市长江大桥。南京市长江大桥。南京市长江大桥。南京市长江大桥。南京市长江大桥。南京市长江大桥。南京市长江大桥。南京市长江大桥。南京市长江大桥。南京市长江大桥。南京市长江大桥。南京市长江大桥。南京市长江大桥。南京市长江大桥。南京市长江大桥。南京市长江大桥。南京市长江大桥。南京市长江大桥。南京市长江大桥。南京市长江大桥。南京市长江大桥。南京市长江大桥。南京市长江大桥。南京市长江大桥。南京市长江大桥。南京市长江大桥。南京市长江大桥。南京市长江大桥。', 'ik', '[{"output":"all"}]') AS tokens;
+SELECT TOKENIZE('database DATABASE database DATABASE database DATABASE database DATABASE database DATABASE database DATABASE database DATABASE database DATABASE database DATABASE database DATABASE database DATABASE database DATABASE database DATABASE database DATABASE database DATABASE database DATABASE database DATABASE database DATABASE database DATABASE database DATABASE database DATABASE database DATABASE database DATABASE database DATABASE database DATABASE database DATABASE database DATABASE database DATABASE database DATABASE database DATABASE database DATABASE database DATABASE ', 'beng', '[{"output":"all"}]') AS tokens;
+SELECT TOKENIZE('the THE a database database', 'beng', '[{"output":"all"}]') AS tokens;
+SELECT TOKENIZE('resume résumé RESUME Résumé' COLLATE utf8mb4_general_ci, 'space', '[{"output":"all"}]') AS tokens;
+SELECT TOKENIZE('résumé resume Résumé RESUME' COLLATE utf8mb4_general_ci, 'space', '[{"output":"all"}]') AS tokens;
+SELECT TOKENIZE('resume résumé RESUME Résumé' COLLATE utf8mb4_bin, 'beng', '[{"output":"all"}]') AS tokens;
+SELECT TOKENIZE('café cafe Café CAFE café' COLLATE utf8mb4_unicode_ci, 'beng', '[{"output":"all"}]') AS tokens;
+SELECT TOKENIZE('南京南京南京', 'ngram', '[{"output":"all"}]') AS tokens;
+
+--disable_warnings
+DROP DATABASE IF EXISTS fts_token_hot_path;
+--enable_warnings
+CREATE DATABASE fts_token_hot_path;
+USE fts_token_hot_path;
+CREATE TABLE docs(id INT PRIMARY KEY, body TEXT, FULLTEXT INDEX ft(body) WITH PARSER ik);
+INSERT INTO docs VALUES (1, '南京市长江大桥 数据库全文索引'), (2, 'OceanBase database performance'), (3, '数据库数据库 查询优化'), (4, 'ＡＢＣ１２３ 一百公斤'), (5, '长江大桥 南京市'), (6, '');
+SELECT id FROM docs WHERE MATCH(body) AGAINST('数据库') ORDER BY id;
+SELECT COUNT(*) AS matches FROM docs WHERE MATCH(body) AGAINST('数据库 南京市 长江大桥');
+SELECT COUNT(*) AS matches FROM docs WHERE MATCH(body) AGAINST('数据库 南京市 长江大桥') > 0.5;
+SELECT id, ROUND(MATCH(body) AGAINST('南京市'), 8) AS score FROM docs ORDER BY id;
+UPDATE docs SET body='数据库性能优化 南京市' WHERE id=2;
+DELETE FROM docs WHERE id=1;
+SELECT id FROM docs WHERE MATCH(body) AGAINST('数据库') ORDER BY id;
+SELECT COUNT(*) AS matches FROM docs WHERE MATCH(body) AGAINST('数据库 南京市 长江大桥');
+SELECT COUNT(*) AS matches FROM docs WHERE MATCH(body) AGAINST('数据库 南京市 长江大桥') > 0.5;
+SELECT id, ROUND(MATCH(body) AGAINST('南京市'), 8) AS score FROM docs ORDER BY id;
+DROP DATABASE fts_token_hot_path;
+
+# Cross two full output batches and a partial final batch, with different scores per row.
+--disable_warnings
+DROP DATABASE IF EXISTS fts_batch_projection;
+--enable_warnings
+CREATE DATABASE fts_batch_projection;
+USE fts_batch_projection;
+CREATE TABLE digits(n INT PRIMARY KEY);
+INSERT INTO digits VALUES (0), (1), (2), (3), (4), (5), (6), (7), (8), (9);
+CREATE TABLE docs(id INT PRIMARY KEY, body TEXT, FULLTEXT INDEX ft(body) WITH PARSER beng);
+INSERT INTO docs SELECT a.n + 10*b.n + 100*c.n + 1,
+  IF(MOD(a.n + 10*b.n + 100*c.n, 2) = 0, 'database', 'database performance performance')
+  FROM digits a, digits b, digits c WHERE a.n + 10*b.n + 100*c.n < 513;
+SELECT id, ROUND(MATCH(body) AGAINST('database performance'), 8) AS score
+  FROM docs WHERE MATCH(body) AGAINST('database performance') ORDER BY id;
+DROP DATABASE fts_batch_projection;

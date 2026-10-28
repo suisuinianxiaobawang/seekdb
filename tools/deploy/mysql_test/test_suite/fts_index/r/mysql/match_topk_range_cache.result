@@ -1,0 +1,141 @@
+SET NAMES utf8mb4;
+DROP DATABASE IF EXISTS fts_topk_range_cache;
+CREATE DATABASE fts_topk_range_cache;
+USE fts_topk_range_cache;
+SET ob_query_timeout=100000000;
+CREATE TABLE digits(n INT PRIMARY KEY);
+INSERT INTO digits VALUES (0),(1),(2),(3),(4),(5),(6),(7),(8),(9);
+CREATE TABLE docs(id BIGINT UNSIGNED PRIMARY KEY, body TEXT);
+INSERT INTO docs SELECT a.n+10*b.n+100*c.n+1000*d.n, CONCAT(IF(MOD(a.n+10*b.n+100*c.n+1000*d.n,2)=0,REPEAT('database ',MOD(a.n+10*b.n+100*c.n+1000*d.n,11)+1),''),IF(MOD(a.n+10*b.n+100*c.n+1000*d.n,3)=0,REPEAT('performance ',MOD(a.n+10*b.n+100*c.n+1000*d.n,7)+1),''),IF(MOD(a.n+10*b.n+100*c.n+1000*d.n,5)=0,REPEAT('audit ',MOD(a.n+10*b.n+100*c.n+1000*d.n,5)+1),''),'record',a.n+10*b.n+100*c.n+1000*d.n,' ',REPEAT('filler ',MOD(a.n+10*b.n+100*c.n+1000*d.n,17)+1)) FROM digits a,digits b,digits c,digits d WHERE a.n+10*b.n+100*c.n+1000*d.n<2049;
+INSERT INTO docs VALUES(5000,NULL),(5001,'');
+ALTER TABLE docs ADD FULLTEXT INDEX ft(body) WITH PARSER beng;
+SELECT id,ROUND(MATCH(body) AGAINST('database performance audit'),10) AS score FROM docs WHERE MATCH(body) AGAINST('database performance audit') ORDER BY MATCH(body) AGAINST('database performance audit') DESC,id LIMIT 20;
+id	score
+1530	3.2539351427
+0	3.1834368333
+1650	3.1275520965
+2040	3.1078005655
+510	3.1068914807
+765	3.0708581677
+1275	3.0636694013
+870	3.0570252885
+750	3.0541938803
+255	3.0483217308
+1395	2.9848723566
+1020	2.9720358547
+990	2.9710803705
+885	2.9708838807
+1905	2.9662110031
+1785	2.9558378534
+1140	2.9548247189
+375	2.9440024325
+630	2.9150542315
+90	2.9050671844
+SELECT COUNT(*) AS hits,ROUND(MIN(score),8) AS min_score,ROUND(MAX(score),8) AS max_score FROM (SELECT id,MATCH(body) AGAINST('database performance audit') AS score FROM docs WHERE MATCH(body) AGAINST('database performance audit') LIMIT 0)t;
+hits	min_score	max_score
+0	NULL	NULL
+SELECT COUNT(*) AS hits,ROUND(MIN(score),8) AS min_score,ROUND(MAX(score),8) AS max_score FROM (SELECT id,MATCH(body) AGAINST('database performance audit') AS score FROM docs WHERE MATCH(body) AGAINST('database performance audit') LIMIT 1)t;
+hits	min_score	max_score
+1	3.25393514	3.25393514
+SELECT COUNT(*) AS hits,ROUND(MIN(score),8) AS min_score,ROUND(MAX(score),8) AS max_score FROM (SELECT id,MATCH(body) AGAINST('database performance audit') AS score FROM docs WHERE MATCH(body) AGAINST('database performance audit') LIMIT 7,20)t;
+hits	min_score	max_score
+20	2.85016882	3.05702529
+SELECT COUNT(*) AS hits,ROUND(MIN(score),8) AS min_score,ROUND(MAX(score),8) AS max_score FROM (SELECT id,MATCH(body) AGAINST('database performance audit') AS score FROM docs WHERE MATCH(body) AGAINST('database performance audit') LIMIT 257)t;
+hits	min_score	max_score
+257	1.71230799	3.25393514
+SELECT COUNT(*) AS hits,ROUND(MIN(score),8) AS min_score,ROUND(MAX(score),8) AS max_score FROM (SELECT id,MATCH(body) AGAINST('database performance audit') AS score FROM docs WHERE MATCH(body) AGAINST('database performance audit') LIMIT 2048)t;
+hits	min_score	max_score
+1503	0.22182701	3.25393514
+SELECT /*+opt_param('ROWSETS_MAX_ROWS',0)*/ COUNT(*) AS hits FROM (SELECT id FROM docs WHERE MATCH(body) AGAINST('database performance audit') LIMIT 20)t;
+hits
+20
+SELECT /*+opt_param('ROWSETS_MAX_ROWS',1)*/ COUNT(*) AS hits FROM (SELECT id FROM docs WHERE MATCH(body) AGAINST('database performance audit') LIMIT 20)t;
+hits
+20
+SELECT COUNT(*) AS hits FROM (SELECT id FROM docs WHERE MATCH(body) AGAINST('record1 record2 record3 record4 record5 record6 record7 record8 record9 record10 record11 record12 record13 record14 record15 record16 record17 record18 record19 record20 record21 record22 record23 record24 record25 record26 record27 record28 record29 record30 record31') LIMIT 20)t;
+hits
+20
+SELECT COUNT(*) AS hits FROM (SELECT id FROM docs WHERE MATCH(body) AGAINST('record1 record2 record3 record4 record5 record6 record7 record8 record9 record10 record11 record12 record13 record14 record15 record16 record17 record18 record19 record20 record21 record22 record23 record24 record25 record26 record27 record28 record29 record30 record31 record32 record33 record34 record35 record36 record37 record38 record39 record40 record41 record42 record43 record44 record45 record46 record47 record48 record49 record50 record51 record52 record53 record54 record55 record56 record57 record58 record59 record60 record61 record62 record63') LIMIT 20)t;
+hits
+20
+SELECT COUNT(*) AS hits FROM (SELECT id FROM docs WHERE MATCH(body) AGAINST('record1 record2 record3 record4 record5 record6 record7 record8 record9 record10 record11 record12 record13 record14 record15 record16 record17 record18 record19 record20 record21 record22 record23 record24 record25 record26 record27 record28 record29 record30 record31 record32 record33 record34 record35 record36 record37 record38 record39 record40 record41 record42 record43 record44 record45 record46 record47 record48 record49 record50 record51 record52 record53 record54 record55 record56 record57 record58 record59 record60 record61 record62 record63 record64') LIMIT 20)t;
+hits
+20
+SELECT COUNT(*) AS hits FROM (SELECT id FROM docs WHERE MATCH(body) AGAINST('record1 record2 record3 record4 record5 record6 record7 record8 record9 record10 record11 record12 record13 record14 record15 record16 record17 record18 record19 record20 record21 record22 record23 record24 record25 record26 record27 record28 record29 record30 record31 record32 record33 record34 record35 record36 record37 record38 record39 record40 record41 record42 record43 record44 record45 record46 record47 record48 record49 record50 record51 record52 record53 record54 record55 record56 record57 record58 record59 record60 record61 record62 record63 record64 record65') LIMIT 20)t;
+hits
+20
+PREPARE q FROM 'SELECT COUNT(*) AS hits FROM (SELECT id FROM docs WHERE MATCH(body) AGAINST(?) LIMIT 20)t';
+SET @q='database audit';
+EXECUTE q USING @q;
+hits
+20
+SET @q='performance';
+EXECUTE q USING @q;
+hits
+20
+SET @q='zxqvmissingword';
+EXECUTE q USING @q;
+hits
+0
+SET @q='database performance audit';
+EXECUTE q USING @q;
+hits
+20
+SET @q='';
+EXECUTE q USING @q;
+hits
+0
+DEALLOCATE PREPARE q;
+UPDATE docs SET body='database performance audit' WHERE id IN(2,15,400);
+DELETE FROM docs WHERE id IN(3,30,900);
+SELECT id,ROUND(MATCH(body) AGAINST('database performance audit'),10) AS score FROM docs WHERE MATCH(body) AGAINST('database performance audit') ORDER BY MATCH(body) AGAINST('database performance audit') DESC,id LIMIT 20;
+id	score
+2	3.4571187711
+15	3.4571187711
+400	3.4571187711
+1530	3.2615036118
+0	3.1905990232
+1650	3.1350825492
+2040	3.1147647728
+510	3.1140029817
+765	3.0788117232
+1275	3.0715326294
+870	3.0640438842
+750	3.0609911516
+255	3.0562668101
+1395	2.9926168647
+1020	2.9787153775
+885	2.9786425966
+990	2.9781877189
+1905	2.9738337562
+1785	2.9632871893
+1140	2.9615150030
+CREATE TABLE signed_docs(id BIGINT PRIMARY KEY,body TEXT);
+INSERT INTO signed_docs SELECT * FROM docs;
+ALTER TABLE signed_docs ADD FULLTEXT INDEX ft(body) WITH PARSER beng;
+SELECT id,ROUND(MATCH(body) AGAINST('database performance audit'),10) AS score FROM signed_docs WHERE MATCH(body) AGAINST('database performance audit') ORDER BY MATCH(body) AGAINST('database performance audit') DESC,id LIMIT 20;
+id	score
+2	3.4502545068
+15	3.4502545068
+400	3.4502545068
+1530	3.2537989881
+0	3.1838111877
+1650	3.1273194013
+2040	3.1073980290
+510	3.1064453271
+765	3.0713420857
+1275	3.0642750738
+870	3.0566703275
+750	3.0539019563
+255	3.0486929325
+1395	2.9851921173
+1020	2.9714192472
+885	2.9711126720
+990	2.9706661309
+1905	2.9666256091
+1785	2.9565733410
+1140	2.9541846022
+SELECT COUNT(*) AS hits FROM (SELECT id FROM signed_docs WHERE MATCH(body) AGAINST('database performance audit') LIMIT 513)t;
+hits
+513
+DROP DATABASE fts_topk_range_cache;

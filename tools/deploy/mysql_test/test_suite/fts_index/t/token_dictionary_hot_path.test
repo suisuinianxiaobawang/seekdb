@@ -1,0 +1,28 @@
+# description: Preserve IK dictionary range boundaries and Chinese numeral classes.
+SET NAMES utf8mb4;
+SELECT TOKENIZE('一个 一公斤 一平方米 一年 一元 一世纪','ik','[{"output":"all"},{"additional_args":[{"ik_mode":"smart"}]}]') AS tokens;
+SELECT TOKENIZE('一个 一公斤 一平方米 一年 一元 一世纪','ik','[{"output":"all"},{"additional_args":[{"ik_mode":"max_word"}]}]') AS tokens;
+SELECT TOKENIZE('两个 两公斤 两平方米 两年 两元 两世纪','ik','[{"output":"all"},{"additional_args":[{"ik_mode":"smart"}]}]') AS tokens;
+SELECT TOKENIZE('两个 两公斤 两平方米 两年 两元 两世纪','ik','[{"output":"all"},{"additional_args":[{"ik_mode":"max_word"}]}]') AS tokens;
+SELECT TOKENIZE('零个 零公斤 零平方米 零年 零元 零世纪','ik','[{"output":"all"},{"additional_args":[{"ik_mode":"smart"}]}]') AS tokens;
+SELECT TOKENIZE('零个 零公斤 零平方米 零年 零元 零世纪','ik','[{"output":"all"},{"additional_args":[{"ik_mode":"max_word"}]}]') AS tokens;
+SELECT TOKENIZE('拾个 拾公斤 拾平方米 拾年 拾元 拾世纪','ik','[{"output":"all"},{"additional_args":[{"ik_mode":"smart"}]}]') AS tokens;
+SELECT TOKENIZE('拾个 拾公斤 拾平方米 拾年 拾元 拾世纪','ik','[{"output":"all"},{"additional_args":[{"ik_mode":"max_word"}]}]') AS tokens;
+SELECT TOKENIZE('仟个 仟公斤 仟平方米 仟年 仟元 仟世纪','ik','[{"output":"all"},{"additional_args":[{"ik_mode":"smart"}]}]') AS tokens;
+SELECT TOKENIZE('仟个 仟公斤 仟平方米 仟年 仟元 仟世纪','ik','[{"output":"all"},{"additional_args":[{"ik_mode":"max_word"}]}]') AS tokens;
+SELECT TOKENIZE('廿个 廿公斤 廿平方米 廿年 廿元 廿世纪','ik','[{"output":"all"},{"additional_args":[{"ik_mode":"smart"}]}]') AS tokens;
+SELECT TOKENIZE('廿个 廿公斤 廿平方米 廿年 廿元 廿世纪','ik','[{"output":"all"},{"additional_args":[{"ik_mode":"max_word"}]}]') AS tokens;
+SELECT TOKENIZE('一一列举 一一对应','ik','[{"output":"all"},{"additional_args":[{"ik_mode":"smart"}]}]') AS tokens;
+SELECT TOKENIZE('一一列举 一一对应','ik','[{"output":"all"},{"additional_args":[{"ik_mode":"max_word"}]}]') AS tokens;
+SELECT TOKENIZE('单齿额定升降能力 卖不出去 卖不掉','ik','[{"output":"all"},{"additional_args":[{"ik_mode":"smart"}]}]') AS tokens;
+SELECT TOKENIZE('单齿额定升降能力 卖不出去 卖不掉','ik','[{"output":"all"},{"additional_args":[{"ik_mode":"max_word"}]}]') AS tokens;
+SELECT TOKENIZE('应验 底下 底下人','ik','[{"output":"all"},{"additional_args":[{"ik_mode":"smart"}]}]') AS tokens;
+SELECT TOKENIZE('应验 底下 底下人','ik','[{"output":"all"},{"additional_args":[{"ik_mode":"max_word"}]}]') AS tokens;
+SELECT TOKENIZE('榫眼 榱崩栋折 榱栋崩折','ik','[{"output":"all"},{"additional_args":[{"ik_mode":"smart"}]}]') AS tokens;
+SELECT TOKENIZE('榫眼 榱崩栋折 榱栋崩折','ik','[{"output":"all"},{"additional_args":[{"ik_mode":"max_word"}]}]') AS tokens;
+SELECT TOKENIZE('粘骨膜分离器 粜风卖雨 粝食粗衣','ik','[{"output":"all"},{"additional_args":[{"ik_mode":"smart"}]}]') AS tokens;
+SELECT TOKENIZE('粘骨膜分离器 粜风卖雨 粝食粗衣','ik','[{"output":"all"},{"additional_args":[{"ik_mode":"max_word"}]}]') AS tokens;
+SELECT TOKENIZE('醉鬼 醋劲 醋劲儿','ik','[{"output":"all"},{"additional_args":[{"ik_mode":"smart"}]}]') AS tokens;
+SELECT TOKENIZE('醉鬼 醋劲 醋劲儿','ik','[{"output":"all"},{"additional_args":[{"ik_mode":"max_word"}]}]') AS tokens;
+SELECT TOKENIZE('a z ñ Ω かな カナ 한글 😀 𠀀 𠮷 龿 龥 﫿 一一列举','ik','[{"output":"all"},{"additional_args":[{"ik_mode":"smart"}]}]') AS tokens;
+SELECT TOKENIZE('a z ñ Ω かな カナ 한글 😀 𠀀 𠮷 龿 龥 﫿 一一列举','ik','[{"output":"all"},{"additional_args":[{"ik_mode":"max_word"}]}]') AS tokens;

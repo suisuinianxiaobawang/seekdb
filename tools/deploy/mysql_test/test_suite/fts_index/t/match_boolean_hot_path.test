@@ -1,0 +1,53 @@
+# description: Natural-language existence must preserve union, deduplication and ranking uses.
+SET NAMES utf8mb4;
+--disable_warnings
+DROP DATABASE IF EXISTS fts_match_boolean;
+--enable_warnings
+CREATE DATABASE fts_match_boolean;
+USE fts_match_boolean;
+CREATE TABLE docs(id INT PRIMARY KEY,title VARCHAR(128),body TEXT,tag INT,FULLTEXT INDEX ft(title,body) WITH PARSER ik);
+INSERT INTO docs VALUES
+ (1,'database','performance performance audit',1),
+ (2,'database','database database',2),
+ (3,'数据库','南京市长江大桥',1),
+ (4,'other','unrelated text',2),
+ (5,NULL,'database',1),(6,'database',NULL,2),(7,NULL,NULL,1),(8,'','',2);
+SELECT id FROM docs WHERE MATCH(title,body) AGAINST('database performance') ORDER BY id;
+SELECT COUNT(*) AS matches FROM docs WHERE MATCH(title,body) AGAINST('database database performance');
+SELECT id FROM docs WHERE MATCH(title,body) AGAINST('database performance') AND tag=1 ORDER BY id;
+SELECT tag,COUNT(*) AS matches FROM docs WHERE MATCH(title,body) AGAINST('database performance') GROUP BY tag ORDER BY tag;
+SELECT id FROM docs WHERE MATCH(title,body) AGAINST('database performance') ORDER BY id LIMIT 1,2;
+SELECT COUNT(*) AS matches FROM docs WHERE MATCH(title,body) AGAINST('');
+SELECT COUNT(*) AS matches FROM docs WHERE MATCH(title,body) AGAINST('missingword');
+SELECT /*+opt_param('ROWSETS_MAX_ROWS',0)*/ COUNT(*) AS matches FROM docs WHERE MATCH(title,body) AGAINST('database performance');
+SELECT /*+opt_param('ROWSETS_MAX_ROWS',1)*/ COUNT(*) AS matches FROM docs WHERE MATCH(title,body) AGAINST('database performance');
+SELECT COUNT(IF(MATCH(title,body) AGAINST('database performance'),1,0)) AS matches FROM docs WHERE MATCH(title,body) AGAINST('database performance');
+SELECT COUNT(CASE WHEN MATCH(title,body) AGAINST('database performance') THEN 1 END) AS matches FROM docs WHERE MATCH(title,body) AGAINST('database performance');
+SELECT COUNT(*) AS matches FROM docs WHERE MATCH(title,body) AGAINST('database performance') AND IF(MATCH(title,body) AGAINST('database performance'),1,0);
+SELECT id,ROUND(MATCH(title,body) AGAINST('database performance'),9) AS score FROM docs WHERE MATCH(title,body) AGAINST('database performance') ORDER BY id;
+SELECT id FROM docs WHERE MATCH(title,body) AGAINST('database performance')>0.5 ORDER BY id;
+SELECT id,ROUND(MATCH(title,body) AGAINST('database performance'),9) AS score FROM docs WHERE MATCH(title,body) AGAINST('database performance') ORDER BY score DESC,id LIMIT 3;
+SELECT id FROM docs WHERE MATCH(title,body) AGAINST('+database +performance' IN BOOLEAN MODE) ORDER BY id;
+PREPARE query FROM 'SELECT id FROM docs WHERE MATCH(title,body) AGAINST(?) ORDER BY id';
+SET @q='database';
+EXECUTE query USING @q;
+SET @q='';
+EXECUTE query USING @q;
+SET @q='数据库';
+EXECUTE query USING @q;
+DEALLOCATE PREPARE query;
+PREPARE query FROM 'SELECT COUNT(*) AS matches FROM docs WHERE MATCH(title,body) AGAINST(?)';
+SET @q='database performance';
+EXECUTE query USING @q;
+SET @q='';
+EXECUTE query USING @q;
+SET @q='数据库';
+EXECUTE query USING @q;
+DEALLOCATE PREPARE query;
+UPDATE docs SET body='database performance' WHERE id=4;
+DELETE FROM docs WHERE id=2;
+SELECT id FROM docs WHERE MATCH(title,body) AGAINST('database performance') ORDER BY id;
+SELECT id,ROUND(MATCH(title,body) AGAINST('database performance'),9) AS score FROM docs WHERE MATCH(title,body) AGAINST('database performance') ORDER BY id;
+TRUNCATE TABLE docs;
+SELECT COUNT(*) AS matches FROM docs WHERE MATCH(title,body) AGAINST('database performance');
+DROP DATABASE fts_match_boolean;

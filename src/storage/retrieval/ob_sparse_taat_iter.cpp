@@ -80,7 +80,9 @@ void ObSRTaaTIterImpl::reuse(const bool switch_tablet)
 {
   if (nullptr != hash_maps_) {
     for (int64_t i = 0; i < partition_cnt_; ++i) {
-      hash_maps_[i]->destroy();
+      if (nullptr != hash_maps_[i]) {
+        hash_maps_[i]->destroy();
+      }
     }
     hash_maps_ = nullptr;
   }
@@ -193,18 +195,21 @@ int ObSRTaaTIterImpl::init_chunk_stores()
       ret = OB_ALLOCATE_MEMORY_FAILED;
     } else {
       hash_maps_ = static_cast<ObSRTaaTHashMap **>(buf);
+      MEMSET(hash_maps_, 0, sizeof(ObSRTaaTHashMap *) * partition_cnt_);
     }
     if (OB_FAIL(ret)) {
     } else if (OB_ISNULL(buf = iter_allocator_->alloc(sizeof(query::ObSpillRowStore *) * partition_cnt_))) {
       ret = OB_ALLOCATE_MEMORY_FAILED;
     } else {
       datum_stores_ = static_cast<query::ObSpillRowStore **>(buf);
+      MEMSET(datum_stores_, 0, sizeof(query::ObSpillRowStore *) * partition_cnt_);
     }
     if (OB_FAIL(ret)) {
     } else if (OB_ISNULL(buf = iter_allocator_->alloc(sizeof(query::ObSpillRowStoreIterator *) * partition_cnt_))) {
       ret = OB_ALLOCATE_MEMORY_FAILED;
     } else {
       datum_store_iters_ = static_cast<query::ObSpillRowStoreIterator **>(buf);
+      MEMSET(datum_store_iters_, 0, sizeof(query::ObSpillRowStoreIterator *) * partition_cnt_);
     }
     if (OB_FAIL(ret) || !iter_param_->id_proj_expr_->is_batch_result()) {
     } else if (OB_ISNULL(buf = iter_allocator_->alloc(sizeof(sql::ObBitVector *) * partition_cnt_))) {
@@ -218,7 +223,8 @@ int ObSRTaaTIterImpl::init_chunk_stores()
         ret = OB_ALLOCATE_MEMORY_FAILED;
       } else {
         ObSRTaaTHashMap *hash_map = new (buf) ObSRTaaTHashMap();
-        if (OB_FAIL(hash_map->create(10, common::ObMemAttr("FTTaatMap")))) {
+        const int64_t bucket_count = iter_param_->need_project_relevance() ? 10 : OB_HASHMAP_DEFAULT_SIZE;
+        if (OB_FAIL(hash_map->create(bucket_count, common::ObMemAttr("FTTaatMap")))) {
         } else {
           hash_maps_[i] = hash_map;
         }
@@ -405,7 +411,7 @@ int ObSRTaaTIterImpl::load_next_hash_map()
           } else if (OB_FAIL(map->set_refactored(id, cur_relevance + last_relevance, 1 /* overwrite */))) {
           }
         } else {
-          if (OB_FAIL(map->set_refactored(id, 1.0, 0 /* overwrite */))) {
+          if (OB_FAIL(map->set_refactored(id, 1.0, 1 /* overwrite duplicate hits */))) {
           }
         }
       }

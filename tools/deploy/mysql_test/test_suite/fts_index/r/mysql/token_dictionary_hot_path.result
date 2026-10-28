@@ -1,0 +1,79 @@
+SET NAMES utf8mb4;
+SELECT TOKENIZE('一个 一公斤 一平方米 一年 一元 一世纪','ik','[{"output":"all"},{"additional_args":[{"ik_mode":"smart"}]}]') AS tokens;
+tokens
+{"tokens": [{"一世纪": 1}, {"一年": 1}, {"一公斤": 1}, {"一元": 1}, {"一个": 1}, {"一平方米": 1}], "doc_len": 6}
+SELECT TOKENIZE('一个 一公斤 一平方米 一年 一元 一世纪','ik','[{"output":"all"},{"additional_args":[{"ik_mode":"max_word"}]}]') AS tokens;
+tokens
+{"tokens": [{"米": 1}, {"公斤": 1}, {"个": 1}, {"一世纪": 1}, {"元": 1}, {"一年": 1}, {"年": 1}, {"世": 1}, {"一元": 1}, {"斤": 1}, {"平方米": 1}, {"纪": 1}, {"一个": 1}, {"一": 6}, {"一世": 1}, {"方": 1}, {"平方": 1}, {"世纪": 1}], "doc_len": 23}
+SELECT TOKENIZE('两个 两公斤 两平方米 两年 两元 两世纪','ik','[{"output":"all"},{"additional_args":[{"ik_mode":"smart"}]}]') AS tokens;
+tokens
+{"tokens": [{"两个": 1}, {"两世纪": 1}, {"两元": 1}, {"两平方米": 1}, {"两公斤": 1}, {"两年": 1}], "doc_len": 6}
+SELECT TOKENIZE('两个 两公斤 两平方米 两年 两元 两世纪','ik','[{"output":"all"},{"additional_args":[{"ik_mode":"max_word"}]}]') AS tokens;
+tokens
+{"tokens": [{"米": 1}, {"公斤": 1}, {"个": 1}, {"元": 1}, {"两": 6}, {"两个": 1}, {"年": 1}, {"两元": 1}, {"世": 1}, {"斤": 1}, {"平方米": 1}, {"纪": 1}, {"两年": 1}, {"方": 1}, {"平方": 1}, {"世纪": 1}], "doc_len": 21}
+SELECT TOKENIZE('零个 零公斤 零平方米 零年 零元 零世纪','ik','[{"output":"all"},{"additional_args":[{"ik_mode":"smart"}]}]') AS tokens;
+tokens
+{"tokens": [{"零年": 1}, {"零公斤": 1}, {"零个": 1}, {"零平方米": 1}, {"零世纪": 1}, {"零元": 1}], "doc_len": 6}
+SELECT TOKENIZE('零个 零公斤 零平方米 零年 零元 零世纪','ik','[{"output":"all"},{"additional_args":[{"ik_mode":"max_word"}]}]') AS tokens;
+tokens
+{"tokens": [{"米": 1}, {"公斤": 1}, {"个": 1}, {"元": 1}, {"年": 1}, {"世": 1}, {"斤": 1}, {"平方米": 1}, {"纪": 1}, {"零元": 1}, {"零": 6}, {"方": 1}, {"平方": 1}, {"世纪": 1}], "doc_len": 19}
+SELECT TOKENIZE('拾个 拾公斤 拾平方米 拾年 拾元 拾世纪','ik','[{"output":"all"},{"additional_args":[{"ik_mode":"smart"}]}]') AS tokens;
+tokens
+{"tokens": [{"拾年": 1}, {"拾元": 1}, {"拾世纪": 1}, {"拾个": 1}, {"拾平方米": 1}, {"拾公斤": 1}], "doc_len": 6}
+SELECT TOKENIZE('拾个 拾公斤 拾平方米 拾年 拾元 拾世纪','ik','[{"output":"all"},{"additional_args":[{"ik_mode":"max_word"}]}]') AS tokens;
+tokens
+{"tokens": [{"米": 1}, {"公斤": 1}, {"个": 1}, {"元": 1}, {"拾元": 1}, {"年": 1}, {"世": 1}, {"斤": 1}, {"平方米": 1}, {"纪": 1}, {"拾": 6}, {"方": 1}, {"平方": 1}, {"世纪": 1}], "doc_len": 19}
+SELECT TOKENIZE('仟个 仟公斤 仟平方米 仟年 仟元 仟世纪','ik','[{"output":"all"},{"additional_args":[{"ik_mode":"smart"}]}]') AS tokens;
+tokens
+{"tokens": [{"仟平方米": 1}, {"仟元": 1}, {"仟个": 1}, {"仟年": 1}, {"仟公斤": 1}, {"仟世纪": 1}], "doc_len": 6}
+SELECT TOKENIZE('仟个 仟公斤 仟平方米 仟年 仟元 仟世纪','ik','[{"output":"all"},{"additional_args":[{"ik_mode":"max_word"}]}]') AS tokens;
+tokens
+{"tokens": [{"米": 1}, {"公斤": 1}, {"个": 1}, {"元": 1}, {"年": 1}, {"世": 1}, {"斤": 1}, {"平方米": 1}, {"纪": 1}, {"仟": 6}, {"方": 1}, {"平方": 1}, {"世纪": 1}], "doc_len": 18}
+SELECT TOKENIZE('廿个 廿公斤 廿平方米 廿年 廿元 廿世纪','ik','[{"output":"all"},{"additional_args":[{"ik_mode":"smart"}]}]') AS tokens;
+tokens
+{"tokens": [{"廿元": 1}, {"廿平方米": 1}, {"廿年": 1}, {"廿公斤": 1}, {"廿世纪": 1}, {"廿个": 1}], "doc_len": 6}
+SELECT TOKENIZE('廿个 廿公斤 廿平方米 廿年 廿元 廿世纪','ik','[{"output":"all"},{"additional_args":[{"ik_mode":"max_word"}]}]') AS tokens;
+tokens
+{"tokens": [{"米": 1}, {"公斤": 1}, {"个": 1}, {"元": 1}, {"年": 1}, {"世": 1}, {"斤": 1}, {"平方米": 1}, {"纪": 1}, {"廿": 6}, {"方": 1}, {"平方": 1}, {"世纪": 1}], "doc_len": 18}
+SELECT TOKENIZE('一一列举 一一对应','ik','[{"output":"all"},{"additional_args":[{"ik_mode":"smart"}]}]') AS tokens;
+tokens
+{"tokens": [{"一一对应": 1}, {"一一列举": 1}], "doc_len": 2}
+SELECT TOKENIZE('一一列举 一一对应','ik','[{"output":"all"},{"additional_args":[{"ik_mode":"max_word"}]}]') AS tokens;
+tokens
+{"tokens": [{"对": 1}, {"应": 1}, {"一一对应": 1}, {"列": 1}, {"一一列举": 1}, {"一对": 1}, {"举": 1}, {"一一": 2}, {"一列": 1}, {"对应": 1}, {"列举": 1}], "doc_len": 12}
+SELECT TOKENIZE('单齿额定升降能力 卖不出去 卖不掉','ik','[{"output":"all"},{"additional_args":[{"ik_mode":"smart"}]}]') AS tokens;
+tokens
+{"tokens": [{"卖不出去": 1}, {"单齿额定升降能力": 1}, {"卖不掉": 1}], "doc_len": 3}
+SELECT TOKENIZE('单齿额定升降能力 卖不出去 卖不掉','ik','[{"output":"all"},{"additional_args":[{"ik_mode":"max_word"}]}]') AS tokens;
+tokens
+{"tokens": [{"额定": 1}, {"卖不出去": 1}, {"单齿额定升降能力": 1}, {"不出": 1}, {"不出去": 1}, {"卖不掉": 1}, {"能力": 1}, {"升降": 1}, {"不掉": 1}, {"出去": 1}], "doc_len": 10}
+SELECT TOKENIZE('应验 底下 底下人','ik','[{"output":"all"},{"additional_args":[{"ik_mode":"smart"}]}]') AS tokens;
+tokens
+{"tokens": [{"应验": 1}, {"底下": 1}, {"底下人": 1}], "doc_len": 3}
+SELECT TOKENIZE('应验 底下 底下人','ik','[{"output":"all"},{"additional_args":[{"ik_mode":"max_word"}]}]') AS tokens;
+tokens
+{"tokens": [{"应验": 1}, {"底下": 2}, {"下人": 1}, {"底下人": 1}], "doc_len": 5}
+SELECT TOKENIZE('榫眼 榱崩栋折 榱栋崩折','ik','[{"output":"all"},{"additional_args":[{"ik_mode":"smart"}]}]') AS tokens;
+tokens
+{"tokens": [{"榫眼": 1}, {"榱栋崩折": 1}, {"榱崩栋折": 1}], "doc_len": 3}
+SELECT TOKENIZE('榫眼 榱崩栋折 榱栋崩折','ik','[{"output":"all"},{"additional_args":[{"ik_mode":"max_word"}]}]') AS tokens;
+tokens
+{"tokens": [{"榫眼": 1}, {"榱栋崩折": 1}, {"榱崩栋折": 1}], "doc_len": 3}
+SELECT TOKENIZE('粘骨膜分离器 粜风卖雨 粝食粗衣','ik','[{"output":"all"},{"additional_args":[{"ik_mode":"smart"}]}]') AS tokens;
+tokens
+{"tokens": [{"粘骨膜分离器": 1}, {"粝食粗衣": 1}, {"粜风卖雨": 1}], "doc_len": 3}
+SELECT TOKENIZE('粘骨膜分离器 粜风卖雨 粝食粗衣','ik','[{"output":"all"},{"additional_args":[{"ik_mode":"max_word"}]}]') AS tokens;
+tokens
+{"tokens": [{"分离器": 1}, {"器": 1}, {"膜分离": 1}, {"粘骨膜分离器": 1}, {"骨膜": 1}, {"粝食粗衣": 1}, {"分离": 1}, {"粜风卖雨": 1}], "doc_len": 8}
+SELECT TOKENIZE('醉鬼 醋劲 醋劲儿','ik','[{"output":"all"},{"additional_args":[{"ik_mode":"smart"}]}]') AS tokens;
+tokens
+{"tokens": [{"醉鬼": 1}, {"醋劲儿": 1}, {"醋劲": 1}], "doc_len": 3}
+SELECT TOKENIZE('醉鬼 醋劲 醋劲儿','ik','[{"output":"all"},{"additional_args":[{"ik_mode":"max_word"}]}]') AS tokens;
+tokens
+{"tokens": [{"劲儿": 1}, {"醉鬼": 1}, {"醋劲儿": 1}, {"醋劲": 2}], "doc_len": 5}
+SELECT TOKENIZE('a z ñ Ω かな カナ 한글 😀 𠀀 𠮷 龿 龥 﫿 一一列举','ik','[{"output":"all"},{"additional_args":[{"ik_mode":"smart"}]}]') AS tokens;
+tokens
+{"tokens": [{"﫿": 1}, {"a": 1}, {"な": 1}, {"ナ": 1}, {"龥": 1}, {"한": 1}, {"カ": 1}, {"글": 1}, {"一一列举": 1}, {"か": 1}, {"龿": 1}, {"z": 1}], "doc_len": 12}
+SELECT TOKENIZE('a z ñ Ω かな カナ 한글 😀 𠀀 𠮷 龿 龥 﫿 一一列举','ik','[{"output":"all"},{"additional_args":[{"ik_mode":"max_word"}]}]') AS tokens;
+tokens
+{"tokens": [{"﫿": 1}, {"a": 1}, {"な": 1}, {"ナ": 1}, {"龥": 1}, {"한": 1}, {"カ": 1}, {"글": 1}, {"列": 1}, {"一一列举": 1}, {"か": 1}, {"举": 1}, {"龿": 1}, {"一一": 1}, {"一列": 1}, {"z": 1}, {"列举": 1}], "doc_len": 17}

@@ -18,6 +18,7 @@
 
 #include "ob_sparse_bmw_iter.h"
 #include "ob_block_max_iter.h"
+#include "lib/time/ob_time_utility.h"
 
 namespace oceanbase
 {
@@ -32,7 +33,10 @@ ObSRBMWIterImpl::ObSRBMWIterImpl()
     top_k_count_(0),
     domain_id_cmp_(),
     id_cache_(),
-    status_(BMWStatus::MAX_STATUS)
+    status_(BMWStatus::MAX_STATUS),
+    candidate_range_mask_(0),
+    candidate_range_score_(0.0),
+    candidate_range_valid_(false)
 {}
 
 int ObSRBMWIterImpl::init(
@@ -65,7 +69,8 @@ int ObSRBMWIterImpl::init(
 
 void ObSRBMWIterImpl::reuse(const bool switch_tablet)
 {
-
+  search_stats_ = SearchStats();
+  candidate_range_valid_ = false;
   while (!top_k_heap_.empty()) {
     top_k_heap_.pop();
   }
@@ -75,6 +80,8 @@ void ObSRBMWIterImpl::reuse(const bool switch_tablet)
 
 void ObSRBMWIterImpl::reset()
 {
+  search_stats_ = SearchStats();
+  candidate_range_valid_ = false;
   top_k_heap_.reset();
   top_k_count_ = 0;
   status_ = BMWStatus::MAX_STATUS;
@@ -110,6 +117,11 @@ int ObSRBMWIterImpl::get_next_rows(const int64_t capacity, int64_t &count)
 int ObSRBMWIterImpl::top_k_search()
 {
   int ret = OB_SUCCESS;
+  search_stats_ = SearchStats();
+  candidate_range_valid_ = false;
+  const int64_t search_start = ObTimeUtility::current_monotonic_time();
+  int64_t build_heap_us = 0;
+  int64_t prepare_wand_us = 0;
   if (OB_UNLIKELY(BMWStatus::MAX_STATUS != status_)) {
     ret = OB_ERR_UNEXPECTED;
   } else if (OB_FAIL(build_top_k_heap())) {
@@ -117,10 +129,16 @@ int ObSRBMWIterImpl::top_k_search()
     } else {
       status_ = BMWStatus::FINISHED;
     }
-  } else if (OB_FAIL(init_before_wand_process())) {
   } else {
-    status_ = BMWStatus::FIND_NEXT_PIVOT;
+    const int64_t prepare_start = ObTimeUtility::current_monotonic_time();
+    if (OB_FAIL(init_before_wand_process())) {
+    } else {
+      status_ = BMWStatus::FIND_NEXT_PIVOT;
+    }
+    prepare_wand_us = ObTimeUtility::current_monotonic_time() - prepare_start;
   }
+
+  build_heap_us = ObTimeUtility::current_monotonic_time() - search_start - prepare_wand_us;
 
   // stats for debug & optimization
   int64_t pivot_cnt = 0;
@@ -187,6 +205,12 @@ int ObSRBMWIterImpl::top_k_search()
     }
   }
 
+  const int64_t search_total_us = ObTimeUtility::current_monotonic_time() - search_start;
+  LOG_TRACE("FTS_TOPK_SEARCH_STATS", K(ret), K_(top_k_count),
+      "dim_count", dim_iters_->count(), K_(search_stats),
+      K(pivot_cnt), K(eval_pivot_cnt), K(eval_pivot_range_cnt), K(skip_range_cnt),
+      K(build_heap_us), K(prepare_wand_us), K(search_total_us),
+      "heap_count", top_k_heap_.count(), "threshold", get_top_k_threshold());
   return ret;
 }
 
@@ -217,20 +241,26 @@ int ObSRBMWIterImpl::build_top_k_heap()
 int ObSRBMWIterImpl::process_collected_row(const ObDatum &id_datum, const double relevance)
 {
   int ret = OB_SUCCESS;
+  ++search_stats_.merged_doc_cnt_;
   if (OB_UNLIKELY(top_k_heap_.count() > top_k_count_)) {
     ret = OB_ERR_UNEXPECTED;
   } else if (top_k_heap_.count() < top_k_count_) {
     if (OB_FAIL(id_cache_.at(top_k_heap_.count()).from_datum(id_datum))) {
     } else if (OB_FAIL(top_k_heap_.push(TopKItem(relevance, top_k_heap_.count())))) {
+    } else {
+      ++search_stats_.heap_insert_cnt_;
     }
   } else {
     const int64_t cache_idx = top_k_heap_.top().cache_idx_;
     const double top_k_threshold = get_top_k_threshold();
     if (relevance <= top_k_threshold) {
       // not a new top k candidate
+      ++search_stats_.heap_reject_cnt_;
     } else if (OB_FAIL(id_cache_.at(cache_idx).from_datum(id_datum))) {
     } else if (OB_FAIL(top_k_heap_.pop())) {
     } else if (OB_FAIL(top_k_heap_.push(TopKItem(relevance, cache_idx)))) {
+    } else {
+      ++search_stats_.heap_replace_cnt_;
     }
   }
 
@@ -400,8 +430,37 @@ int ObSRBMWIterImpl::evaluate_pivot_range(const int64_t pivot_iter_idx, bool &is
   } else if (OB_FAIL(iter->get_curr_id(pivot_id))) {
   }
 
+  // Cache only positive candidate checks. The common block interval and the
+  // participating dimensions must remain unchanged, and the saved upper bound
+  // must still exceed the (possibly increased) heap threshold. Other cases
+  // use the existing shallow-advance path, including queries with >64 terms.
+  uint64_t dimension_mask = 0;
+  bool cacheable = next_round_cnt_ > 0 && dim_iters_->count() <= 64;
+  for (int64_t i = 0; cacheable && i < next_round_cnt_; ++i) {
+    const int64_t idx = next_round_iter_idxes_[i];
+    if (idx < 0 || idx >= 64) {
+      cacheable = false;
+    } else {
+      dimension_mask |= UINT64_C(1) << idx;
+    }
+  }
+  if (OB_SUCC(ret) && cacheable && candidate_range_valid_
+      && dimension_mask == candidate_range_mask_
+      && candidate_range_score_ > get_top_k_threshold()) {
+    int begin_cmp = 0;
+    int end_cmp = 0;
+    if (OB_FAIL(domain_id_cmp_.compare(*pivot_id, candidate_range_begin_.get_datum(), begin_cmp))) {
+    } else if (OB_FAIL(domain_id_cmp_.compare(*pivot_id, candidate_range_end_.get_datum(), end_cmp))) {
+    } else if (begin_cmp >= 0 && end_cmp <= 0) {
+      is_candidate = true;
+      ++search_stats_.range_cache_hit_cnt_;
+      return ret;
+    }
+  }
+  candidate_range_valid_ = false;
   double block_max_score = 0.0;
   const ObMaxScoreTuple *max_score_tuple = nullptr;
+  const ObDatum *range_end = nullptr;
   for (int64_t i = 0; OB_SUCC(ret) && i < next_round_cnt_; ++i) {
     const int64_t iter_idx = next_round_iter_idxes_[i];
     ObISRDimBlockMaxIter *iter = get_iter(iter_idx);
@@ -411,16 +470,37 @@ int ObSRBMWIterImpl::evaluate_pivot_range(const int64_t pivot_iter_idx, bool &is
       if (OB_UNLIKELY(OB_ITER_END != ret)) {
       } else {
         set_next_round_iter_end(i);
+        cacheable = false;
         ret = OB_SUCCESS;
       }
     } else if (OB_FAIL(iter->get_curr_block_max_info(max_score_tuple))) {
     } else {
       block_max_score += max_score_tuple->max_score_;
+      if (cacheable) {
+        int cmp = 0;
+        if (OB_UNLIKELY(max_score_tuple->max_domain_id_->is_ext())) {
+          cacheable = false;
+        } else if (nullptr == range_end) {
+          range_end = max_score_tuple->max_domain_id_;
+        } else if (OB_FAIL(domain_id_cmp_.compare(*max_score_tuple->max_domain_id_, *range_end, cmp))) {
+        } else if (cmp < 0) {
+          range_end = max_score_tuple->max_domain_id_;
+        }
+      }
     }
   }
 
   if (OB_SUCC(ret)) {
     is_candidate = block_max_score > get_top_k_threshold();
+    if (is_candidate && cacheable && nullptr != range_end && !pivot_id->is_ext()) {
+      if (OB_FAIL(candidate_range_begin_.from_datum(*pivot_id))) {
+      } else if (OB_FAIL(candidate_range_end_.from_datum(*range_end))) {
+      } else {
+        candidate_range_mask_ = dimension_mask;
+        candidate_range_score_ = block_max_score;
+        candidate_range_valid_ = true;
+      }
+    }
   }
 
   LOG_DEBUG("[Sparse Retrieval] BMW evaluate pivot range", K(ret),
