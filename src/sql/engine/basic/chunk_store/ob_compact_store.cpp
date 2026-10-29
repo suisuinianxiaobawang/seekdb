@@ -180,27 +180,23 @@ int ObCompactStore::add_batch(const common::ObIArray<ObExpr *> &exprs, ObEvalCtx
   int ret = OB_SUCCESS;
   CK(is_inited());
   OZ(init_batch_ctx(exprs.count(), ctx.max_batch_size_));
-  bool all_batch_res = false;
+  const bool batch_write = ctx.is_vectorized();
   for (int64_t i = 0; i < exprs.count() && OB_SUCC(ret); i++) {
     ObExpr *e = exprs.at(i);
     if (OB_ISNULL(e)) {
       batch_ctx_->datums_[i] = nullptr;
     } else if (OB_FAIL(e->eval_batch(ctx, skip, batch_size))) {
     } else {
-      if (!e->is_batch_result()) {
-        all_batch_res = false;
-        break;
-      } else {
-        batch_ctx_->datums_[i] = e->locate_batch_datums(ctx);
-      }
+      // Scalar expressions occupy one datum; the writer broadcasts them.
+      batch_ctx_->datums_[i] = e->locate_batch_datums(ctx);
     }
   }
-  if (OB_SUCC(ret) && !all_batch_res) {
+  if (OB_SUCC(ret) && !batch_write) {
     if (OB_FAIL(add_batch_fallback(exprs, ctx, skip, batch_size, selector, size, stored_rows))) {
     }
   }
 
-  if (OB_SUCC(ret) && all_batch_res) {
+  if (OB_SUCC(ret) && batch_write) {
     if (OB_FAIL(inner_add_batch(batch_ctx_->datums_, exprs, selector, size,
                                 NULL == stored_rows ? batch_ctx_->stored_rows_ : stored_rows))) {
     }

@@ -1,0 +1,93 @@
+SET NAMES utf8mb4;
+SET ob_query_timeout=100000000;
+DROP DATABASE IF EXISTS fts_union_pending;
+CREATE DATABASE fts_union_pending;
+USE fts_union_pending;
+CREATE TABLE digits(n INT PRIMARY KEY);
+INSERT INTO digits VALUES(0),(1),(2),(3),(4),(5),(6),(7),(8),(9);
+CREATE TABLE docs(id BIGINT PRIMARY KEY,body TEXT);
+INSERT INTO docs SELECT id,CONCAT(IF((id & 1)<>0,'alpha ',''),IF((id & 2)<>0,'bravo ',''),IF((id & 4)<>0,'charlie ',''),IF((id & 8)<>0,'delta ',''),IF((id & 16)<>0,'echo ',''),IF((id & 32)<>0,'foxtrot ',''),IF((id & 64)<>0,'golf ',''),IF((id & 128)<>0,'hotel ','')) FROM (SELECT a.n+10*b.n+100*c.n AS id FROM digits a,digits b,digits c) s WHERE id<513;
+ALTER TABLE docs ADD FULLTEXT INDEX ft(body) WITH PARSER beng;
+SELECT /*+opt_param('ROWSETS_MAX_ROWS',1)*/ COUNT(*),SUM(id),MIN(id),MAX(id) FROM docs WHERE MATCH(body) AGAINST('alpha delta hotel');
+COUNT(*)	SUM(id)	MIN(id)	MAX(id)
+448	118848	1	511
+SELECT /*+opt_param('ROWSETS_MAX_ROWS',1)*/ COUNT(*),SUM(id),MIN(id),MAX(id) FROM docs WHERE MATCH(body) AGAINST('bravo foxtrot golf');
+COUNT(*)	SUM(id)	MIN(id)	MAX(id)
+448	117600	2	511
+SELECT /*+opt_param('ROWSETS_MAX_ROWS',1)*/ COUNT(*),SUM(id),MIN(id),MAX(id) FROM docs WHERE MATCH(body) AGAINST('hotel');
+COUNT(*)	SUM(id)	MIN(id)	MAX(id)
+256	81792	128	511
+SELECT /*+opt_param('ROWSETS_MAX_ROWS',1)*/ COUNT(*),SUM(id),MIN(id),MAX(id) FROM docs WHERE MATCH(body) AGAINST('alpha bravo charlie delta echo foxtrot golf hotel');
+COUNT(*)	SUM(id)	MIN(id)	MAX(id)
+510	130560	1	511
+SELECT /*+opt_param('ROWSETS_MAX_ROWS',1)*/ COUNT(*),SUM(id),MIN(id),MAX(id) FROM docs WHERE MATCH(body) AGAINST('missingzxqv alpha hotel');
+COUNT(*)	SUM(id)	MIN(id)	MAX(id)
+384	106368	1	511
+SELECT /*+opt_param('ROWSETS_MAX_ROWS',17)*/ COUNT(*),SUM(id),MIN(id),MAX(id) FROM docs WHERE MATCH(body) AGAINST('alpha delta hotel');
+COUNT(*)	SUM(id)	MIN(id)	MAX(id)
+448	118848	1	511
+SELECT /*+opt_param('ROWSETS_MAX_ROWS',17)*/ COUNT(*),SUM(id),MIN(id),MAX(id) FROM docs WHERE MATCH(body) AGAINST('bravo foxtrot golf');
+COUNT(*)	SUM(id)	MIN(id)	MAX(id)
+448	117600	2	511
+SELECT /*+opt_param('ROWSETS_MAX_ROWS',17)*/ COUNT(*),SUM(id),MIN(id),MAX(id) FROM docs WHERE MATCH(body) AGAINST('hotel');
+COUNT(*)	SUM(id)	MIN(id)	MAX(id)
+256	81792	128	511
+SELECT /*+opt_param('ROWSETS_MAX_ROWS',17)*/ COUNT(*),SUM(id),MIN(id),MAX(id) FROM docs WHERE MATCH(body) AGAINST('alpha bravo charlie delta echo foxtrot golf hotel');
+COUNT(*)	SUM(id)	MIN(id)	MAX(id)
+510	130560	1	511
+SELECT /*+opt_param('ROWSETS_MAX_ROWS',17)*/ COUNT(*),SUM(id),MIN(id),MAX(id) FROM docs WHERE MATCH(body) AGAINST('missingzxqv alpha hotel');
+COUNT(*)	SUM(id)	MIN(id)	MAX(id)
+384	106368	1	511
+SELECT /*+opt_param('ROWSETS_MAX_ROWS',256)*/ COUNT(*),SUM(id),MIN(id),MAX(id) FROM docs WHERE MATCH(body) AGAINST('alpha delta hotel');
+COUNT(*)	SUM(id)	MIN(id)	MAX(id)
+448	118848	1	511
+SELECT /*+opt_param('ROWSETS_MAX_ROWS',256)*/ COUNT(*),SUM(id),MIN(id),MAX(id) FROM docs WHERE MATCH(body) AGAINST('bravo foxtrot golf');
+COUNT(*)	SUM(id)	MIN(id)	MAX(id)
+448	117600	2	511
+SELECT /*+opt_param('ROWSETS_MAX_ROWS',256)*/ COUNT(*),SUM(id),MIN(id),MAX(id) FROM docs WHERE MATCH(body) AGAINST('hotel');
+COUNT(*)	SUM(id)	MIN(id)	MAX(id)
+256	81792	128	511
+SELECT /*+opt_param('ROWSETS_MAX_ROWS',256)*/ COUNT(*),SUM(id),MIN(id),MAX(id) FROM docs WHERE MATCH(body) AGAINST('alpha bravo charlie delta echo foxtrot golf hotel');
+COUNT(*)	SUM(id)	MIN(id)	MAX(id)
+510	130560	1	511
+SELECT /*+opt_param('ROWSETS_MAX_ROWS',256)*/ COUNT(*),SUM(id),MIN(id),MAX(id) FROM docs WHERE MATCH(body) AGAINST('missingzxqv alpha hotel');
+COUNT(*)	SUM(id)	MIN(id)	MAX(id)
+384	106368	1	511
+SELECT /*+opt_param('ROWSETS_MAX_ROWS',513)*/ COUNT(*),SUM(id),MIN(id),MAX(id) FROM docs WHERE MATCH(body) AGAINST('alpha delta hotel');
+COUNT(*)	SUM(id)	MIN(id)	MAX(id)
+448	118848	1	511
+SELECT /*+opt_param('ROWSETS_MAX_ROWS',513)*/ COUNT(*),SUM(id),MIN(id),MAX(id) FROM docs WHERE MATCH(body) AGAINST('bravo foxtrot golf');
+COUNT(*)	SUM(id)	MIN(id)	MAX(id)
+448	117600	2	511
+SELECT /*+opt_param('ROWSETS_MAX_ROWS',513)*/ COUNT(*),SUM(id),MIN(id),MAX(id) FROM docs WHERE MATCH(body) AGAINST('hotel');
+COUNT(*)	SUM(id)	MIN(id)	MAX(id)
+256	81792	128	511
+SELECT /*+opt_param('ROWSETS_MAX_ROWS',513)*/ COUNT(*),SUM(id),MIN(id),MAX(id) FROM docs WHERE MATCH(body) AGAINST('alpha bravo charlie delta echo foxtrot golf hotel');
+COUNT(*)	SUM(id)	MIN(id)	MAX(id)
+510	130560	1	511
+SELECT /*+opt_param('ROWSETS_MAX_ROWS',513)*/ COUNT(*),SUM(id),MIN(id),MAX(id) FROM docs WHERE MATCH(body) AGAINST('missingzxqv alpha hotel');
+COUNT(*)	SUM(id)	MIN(id)	MAX(id)
+384	106368	1	511
+PREPARE union_q FROM 'SELECT COUNT(*),SUM(id) FROM docs WHERE MATCH(body) AGAINST(?)';
+SET @q='alpha delta hotel';
+EXECUTE union_q USING @q;
+COUNT(*)	SUM(id)
+448	118848
+SET @q='missingzxqv hotel';
+EXECUTE union_q USING @q;
+COUNT(*)	SUM(id)
+256	81792
+SET @q='bravo foxtrot golf';
+EXECUTE union_q USING @q;
+COUNT(*)	SUM(id)
+448	117600
+SET @q='missingzxqv';
+EXECUTE union_q USING @q;
+COUNT(*)	SUM(id)
+0	NULL
+SET @q='alpha delta hotel';
+EXECUTE union_q USING @q;
+COUNT(*)	SUM(id)
+448	118848
+DEALLOCATE PREPARE union_q;
+DROP DATABASE fts_union_pending;

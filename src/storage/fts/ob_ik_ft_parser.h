@@ -35,15 +35,22 @@ class ObIKFTParser final : public ObITokenIterator
 {
 public:
   ObIKFTParser(ObIAllocator &allocator, ObFTDictHub *hub)
+      : ObIKFTParser(allocator, hub, allocator)
+  {
+  }
+
+  ObIKFTParser(ObIAllocator &allocator, ObFTDictHub *hub, ObIAllocator &dict_allocator)
       : allocator_(allocator),
+        dict_allocator_(dict_allocator),
         is_inited_(false),
+        borrowed_dicts_(false),
         coll_type_(ObCollationType::CS_TYPE_INVALID),
         ctx_(nullptr),
         hub_(hub),
-        segmenters_(allocator_),
-        cache_main_(allocator),
-        cache_quan_(allocator),
-        cache_stop_(allocator),
+        processors_(nullptr),
+        cache_main_(dict_allocator),
+        cache_quan_(dict_allocator),
+        cache_stop_(dict_allocator),
         dict_main_(nullptr),
         dict_quan_(nullptr),
         dict_stop_(nullptr)
@@ -53,6 +60,9 @@ public:
   virtual ~ObIKFTParser() { reset(); }
 
   int init(const ObFTParserParam &param);
+  // Release all document-owned objects before the caller reuses its arena.
+  // Built-in dictionary readers are owned by the hub and stay pinned.
+  void reuse();
 
   int get_next_token(const char *&word,
                      int64_t &word_len,
@@ -91,12 +101,15 @@ private:
 private:
   static constexpr int SEGMENT_LIMIT = 1000;
   ObIAllocator &allocator_;
+  ObIAllocator &dict_allocator_;
   bool is_inited_;
+  bool borrowed_dicts_;
 
   ObCollationType coll_type_;
   TokenizeContext *ctx_;
   ObFTDictHub *hub_;
-  ObList<ObIIKProcessor *, ObIAllocator> segmenters_;
+  class Processors;
+  Processors *processors_;
 
   // For now there's no change of dict in one query, so we can pin dict this level.
   ObFTCacheRangeContainer cache_main_;

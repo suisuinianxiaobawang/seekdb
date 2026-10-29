@@ -86,43 +86,82 @@ void ObSortOpImpl::ObAdaptiveQS::aqs_cps_qs(int64_t l, int64_t r,
                                             int64_t depth_limit,
                                             int64_t cache_offset)
 {
-  int64_t lt = l + 1, gt = r, m = (l - r) / 2 + r;
-  int64_t differ_at = INT64_MAX, lt_cp = INT64_MAX, gt_cp = INT64_MAX;
-  if ((r - l) < 16) {
-    insertion_sort(l, r, common_prefix, cache_offset);
-    //return;
-  } else {
-    // choose best pivot
-    if (compare_vals(m, l, differ_at, common_prefix, cache_offset) > 0) swap(m, l);
-    if (compare_vals(l, r-1, differ_at, common_prefix, cache_offset) > 0) swap(l, r-1);
-    if (compare_vals(m, l, differ_at, common_prefix, cache_offset) > 0) swap(m, l);
-
-    for (uint64_t i = l+1; i < gt; i++) {
-      int compare_res = compare_vals(i, l, differ_at, common_prefix, cache_offset);
-      if (compare_res < 0) {
-        if (i+1 < gt) {
-          __builtin_prefetch(sort_rows_.at(i+1).key_ptr_);
+  UNUSED(cache_offset);
+  if (r - l <= 1) {
+    return;
+  }
+  AQSItem *items = &sort_rows_.at(0);
+  // Sort the encoded byte strings directly. A separate end-of-key bucket
+  // preserves prefix ordering even for embedded zero bytes. The recursion is
+  // bounded; small/deep partitions use the standard comparison sort.
+  const auto radix = [items](auto &&self, int64_t begin, int64_t end,
+                            int64_t prefix, int64_t depth) -> void {
+    if (end - begin <= 1) {
+      return;
+    }
+    if (end - begin < 64 || depth >= 64) {
+      std::sort(items + begin, items + end, [prefix](const AQSItem &a, const AQSItem &b) {
+        const int64_t length = MIN(a.len_, b.len_) - prefix;
+        const int cmp = length > 0 ? MEMCMP(a.key_ptr_ + prefix, b.key_ptr_ + prefix, length) : 0;
+        return cmp < 0 || (cmp == 0 && a.len_ < b.len_);
+      });
+      return;
+    }
+    // Skip a shared prefix in word-sized chunks, instead of redistributing a
+    // large partition once per common byte (notably encoded document IDs).
+    int64_t shared = items[begin].len_;
+    for (int64_t i = begin + 1; i < end && shared > prefix; ++i) {
+      const int64_t limit = MIN(shared, items[i].len_);
+      int64_t pos = prefix;
+      while (pos + sizeof(uint64_t) <= limit) {
+        uint64_t first = 0;
+        uint64_t current = 0;
+        MEMCPY(&first, items[begin].key_ptr_ + pos, sizeof(first));
+        MEMCPY(&current, items[i].key_ptr_ + pos, sizeof(current));
+        if (first != current) {
+          break;
         }
-        lt_cp = min(differ_at, lt_cp);
-        swap(i, lt);
-        lt++;
-      } else if (compare_res == 0) {
-        if (i+1 < gt) {
-          __builtin_prefetch(sort_rows_.at(i+1).key_ptr_);
+        pos += sizeof(uint64_t);
+      }
+      while (pos < limit && items[begin].key_ptr_[pos] == items[i].key_ptr_[pos]) {
+        ++pos;
+      }
+      shared = pos;
+    }
+    prefix = shared;
+    constexpr int64_t BUCKETS = 257;
+    int64_t sizes[BUCKETS] = {};
+    int64_t next[BUCKETS];
+    int64_t ends[BUCKETS];
+    const auto bucket_of = [prefix](const AQSItem &item) {
+      return item.len_ == prefix ? 0 : 1 + static_cast<int>(item.key_ptr_[prefix]);
+    };
+    for (int64_t i = begin; i < end; ++i) {
+      ++sizes[bucket_of(items[i])];
+    }
+    int64_t pos = begin;
+    for (int64_t bucket = 0; bucket < BUCKETS; ++bucket) {
+      next[bucket] = pos;
+      pos += sizes[bucket];
+      ends[bucket] = pos;
+    }
+    for (int64_t bucket = 0; bucket < BUCKETS; ++bucket) {
+      while (next[bucket] < ends[bucket]) {
+        const int target = bucket_of(items[next[bucket]]);
+        if (target == bucket) {
+          ++next[bucket];
+        } else {
+          std::swap(items[next[bucket]], items[next[target]++]);
         }
-      } else {
-        gt_cp = min(differ_at, gt_cp);
-        gt--;
-        swap(i, gt);
-        i--;
       }
     }
-    lt--;
-    swap(lt, l);
-    depth_limit--;
-    if (lt != l) aqs_radix(l, lt, lt_cp, cache_offset, depth_limit);
-    if (gt != r) aqs_radix(gt, r, gt_cp, cache_offset, depth_limit);
-  }
+    for (int64_t bucket = 1; bucket < BUCKETS; ++bucket) {
+      if (sizes[bucket] > 1) {
+        self(self, ends[bucket] - sizes[bucket], ends[bucket], prefix + 1, depth + 1);
+      }
+    }
+  };
+  radix(radix, l, r, common_prefix, depth_limit);
 }
 
 void ObSortOpImpl::ObAdaptiveQS::insertion_sort(int64_t l, int64_t r,
@@ -236,6 +275,43 @@ void ObSortOpImpl::ObAdaptiveQS::inplace_radixsort_more_bucket(int64_t l, int64_
         }
       }
       aqs_cps_qs(more_l, r, common_prefix + 1, depth_limit, cache_offset);
+      return;
+    }
+
+    // Partition a full nibble in two linear passes instead of walking the
+    // range once for each of its four bits. Keep the existing byte-boundary
+    // handling above, including prefix keys and cache updates.
+    if (div_val == 7 || div_val == 3) {
+      constexpr int64_t BUCKETS = 16;
+      int64_t ends[BUCKETS] = {};
+      int64_t next[BUCKETS];
+      const int64_t shift = div_val - 3;
+      AQSItem *items = &sort_rows_.at(0);
+      for (int64_t i = l; i < r; ++i) {
+        ++ends[(items[i].sub_cache_[0] >> shift) & 0xf];
+      }
+      int64_t position = l;
+      for (int64_t bucket = 0; bucket < BUCKETS; ++bucket) {
+        next[bucket] = position;
+        position += ends[bucket];
+        ends[bucket] = position;
+      }
+      for (int64_t bucket = 0; bucket < BUCKETS; ++bucket) {
+        while (next[bucket] < ends[bucket]) {
+          const int64_t target = (items[next[bucket]].sub_cache_[0] >> shift) & 0xf;
+          if (target == bucket) {
+            ++next[bucket];
+          } else {
+            std::swap(items[next[bucket]], items[next[target]++]);
+          }
+        }
+      }
+      position = l;
+      for (int64_t bucket = 0; bucket < BUCKETS; ++bucket) {
+        inplace_radixsort_more_bucket(position, ends[bucket], div_val - 4,
+                                     common_prefix, depth_limit, cache_offset, update);
+        position = ends[bucket];
+      }
       return;
     }
 

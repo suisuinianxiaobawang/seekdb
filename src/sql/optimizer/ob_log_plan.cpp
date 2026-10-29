@@ -12065,7 +12065,6 @@ int ObLogPlan::prepare_text_retrieval_scan(const ObIArray<ObRawExpr *> &scan_mat
     if (get_stmt()->is_select_stmt() && get_stmt()->get_table_items().count() == 1
         && get_stmt()->get_table_items().at(0)->is_basic_table()
         && get_stmt()->get_order_items().empty()
-        && !get_stmt()->has_limit()
         && !table_scan->get_index_back()
         && get_stmt()->get_subquery_exprs().empty()
         && NATURAL_LANGUAGE_MODE == match_against->get_mode_flag()

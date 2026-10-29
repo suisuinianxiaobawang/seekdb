@@ -37,9 +37,10 @@ class ObFTRangeDict final : public ObIFTDict
 public:
   ObFTRangeDict(ObIAllocator &alloc,
                 ObFTCacheRangeContainer *range_container,
-                const ObFTDictDesc &desc)
+                const ObFTDictDesc &desc, bool build_direct_index = false)
       : is_inited_(false), desc_(desc), range_alloc_(lib::ObMemAttr("Range Dict")),
-        range_dicts_(&range_alloc_), range_container_(range_container)
+        range_dicts_(&range_alloc_), range_container_(range_container),
+        build_direct_index_(build_direct_index), range_index_(nullptr)
   {
   }
   ~ObFTRangeDict() override{};
@@ -98,6 +99,7 @@ private:
   }
 
   int find_first_char_range(const ObString &single_word, ObIFTDict *&dict) const;
+  void build_range_index();
 
 private:
   static constexpr int DEFAULT_KEY_PER_RANGE = 50000; // by estimated
@@ -106,6 +108,8 @@ private:
   ObArenaAllocator range_alloc_;
   ObVector<ObFTRange, ObArenaAllocator> range_dicts_;
   ObFTCacheRangeContainer *range_container_; // only used to read cache
+  bool build_direct_index_;
+  uint16_t *range_index_;
 
 private:
   DISALLOW_COPY_AND_ASSIGN(ObFTRangeDict);

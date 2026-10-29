@@ -113,7 +113,7 @@ public:
 
   virtual int add_batch(const common::ObDatum **datums, const common::ObIArray<ObExpr *> &exprs,
                         const uint16_t selector[], const int64_t size,
-                        ObChunkDatumStore::StoredRow **stored_rows, BatchCtx *batch_ctx) override { return OB_NOT_IMPLEMENT; }
+                        ObChunkDatumStore::StoredRow **stored_rows, BatchCtx *batch_ctx) override;
 
   void set_meta(const ChunkRowMeta *row_meta) override { row_meta_ = row_meta; };
   const ChunkRowMeta *get_meta() { return row_meta_; }
@@ -142,6 +142,10 @@ protected:
                           const int64_t extra_size, uint64_t &size);
 
 private:
+  template <typename T>
+  int inner_add_batch(const common::ObDatum **datums, const common::ObIArray<ObExpr *> &exprs,
+                      const uint16_t selector[], const int64_t size, int64_t &row_idx,
+                      BatchCtx &batch_ctx);
   template <typename T>
   int inner_process_datum(const ObDatum &src_datum, const int64_t cur_pos, const ChunkRowMeta &row_meta,
                           CurRowInfo &row_info);

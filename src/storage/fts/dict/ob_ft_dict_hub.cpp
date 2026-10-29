@@ -19,6 +19,7 @@
 #include "storage/fts/dict/ob_ft_dict_hub.h"
 
 #include "lib/ob_errno.h"
+#include "lib/lock/ob_mutex.h"
 #include "lib/oblog/ob_log_module.h"
 #include "lib/utility/ob_macro_utils.h"
 #include "storage/fts/dict/ob_ft_cache_container.h"
@@ -28,12 +29,90 @@ namespace oceanbase
 {
 namespace storage
 {
+class SharedIKDictionaries final
+{
+public:
+  class Entry final
+  {
+  public:
+    Entry() : allocator_(lib::ObMemAttr("FTSharedDict")), ranges_(allocator_), reader_(nullptr) {}
+    ~Entry() { if (reader_ != nullptr) { reader_->~ObFTRangeDict(); } }
+    ObArenaAllocator allocator_;
+    ObFTCacheRangeContainer ranges_;
+    ObFTRangeDict *reader_;
+  };
+  SharedIKDictionaries() : entries_{} {}
+  ~SharedIKDictionaries()
+  {
+    for (int64_t i = 0; i < 3; ++i) {
+      if (entries_[i] != nullptr) {
+        OB_DELETE(Entry, "FTSharedDict", entries_[i]);
+      }
+    }
+  }
+  lib::ObMutex lock_;
+  Entry *entries_[3];
+};
+
+ObFTDictHub::~ObFTDictHub()
+{
+  destroy();
+}
+
+int ObFTDictHub::get_shared_dict(const ObFTDictDesc &desc, ObIFTDict *&dict)
+{
+  int ret = OB_SUCCESS;
+  dict = nullptr;
+  const int64_t index = static_cast<int64_t>(desc.type_) - 1;
+  if (!is_inited_ || shared_dicts_ == nullptr) {
+    ret = OB_NOT_INIT;
+  } else if (index < 0 || index >= 3 || desc.charset_ != CHARSET_UTF8MB4
+             || desc.coll_type_ != CS_TYPE_UTF8MB4_BIN) {
+    ret = OB_NOT_SUPPORTED;
+  } else {
+    // Publish a complete reader once. All matching methods are const and each
+    // parser still owns its hit positions, token lists and document allocator.
+    lib::ObMutexGuard guard(shared_dicts_->lock_);
+    if (shared_dicts_->entries_[index] == nullptr) {
+      using SharedEntry = SharedIKDictionaries::Entry;
+      SharedEntry *entry = OB_NEW(SharedEntry, "FTSharedDict");
+      if (OB_ISNULL(entry)) {
+        ret = OB_ALLOCATE_MEMORY_FAILED;
+      } else {
+        ret = load_cache(desc, entry->ranges_);
+        if (ret == OB_ENTRY_NOT_EXIST) {
+          ret = build_cache(desc, entry->ranges_);
+        }
+        if (OB_SUCC(ret)) {
+          if (OB_ISNULL(entry->reader_ = OB_NEWx(ObFTRangeDict, &entry->allocator_,
+                    entry->allocator_, &entry->ranges_, desc, true))) {
+            ret = OB_ALLOCATE_MEMORY_FAILED;
+          } else {
+            ret = entry->reader_->init();
+          }
+        }
+        if (OB_SUCC(ret)) {
+          shared_dicts_->entries_[index] = entry;
+        } else {
+          OB_DELETE(SharedEntry, "FTSharedDict", entry);
+        }
+      }
+    }
+    if (OB_SUCC(ret)) {
+      dict = shared_dicts_->entries_[index]->reader_;
+    }
+  }
+  return ret;
+}
+
 int ObFTDictHub::init()
 {
   static constexpr int K_MAX_DICT_BUCKET = 128; // for now, only built-in dicts.
   int ret = OB_SUCCESS;
   if (OB_FAIL(dict_map_.create(K_MAX_DICT_BUCKET, "dict_map"))) {
   } else if (OB_FAIL(rw_dict_lock_.init(K_MAX_DICT_BUCKET))) {
+  } else if (OB_ISNULL(shared_dicts_ = OB_NEW(SharedIKDictionaries, "FTSharedDict"))) {
+    ret = OB_ALLOCATE_MEMORY_FAILED;
   } else {
     is_inited_ = true;
   }
@@ -44,6 +123,10 @@ int ObFTDictHub::destroy()
 {
   int ret = OB_SUCCESS;
   is_inited_ = false;
+  if (shared_dicts_ != nullptr) {
+    OB_DELETE(SharedIKDictionaries, "FTSharedDict", shared_dicts_);
+    shared_dicts_ = nullptr;
+  }
   return ret;
 }
 int ObFTDictHub::build_cache(const ObFTDictDesc &desc, ObFTCacheRangeContainer &container)

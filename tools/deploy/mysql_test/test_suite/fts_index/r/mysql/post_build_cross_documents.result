@@ -1,0 +1,54 @@
+SET NAMES utf8mb4;
+SET ob_query_timeout=1000000000;
+SET group_concat_max_len=1000000;
+DROP DATABASE IF EXISTS fts_cross_documents;
+CREATE DATABASE fts_cross_documents;
+USE fts_cross_documents;
+CREATE TABLE digits(n INT PRIMARY KEY);
+INSERT INTO digits VALUES(0),(1),(2),(3),(4),(5),(6),(7),(8),(9);
+CREATE TABLE docs(bucket INT,id INT,body LONGTEXT,PRIMARY KEY(bucket,id)) PARTITION BY HASH(bucket) PARTITIONS 4;
+INSERT INTO docs VALUES(0,1,'anchor alpha'),(1,2,NULL),(2,3,''),(3,4,'anchor beta');
+INSERT INTO docs SELECT 1,5,GROUP_CONCAT(CONCAT('word',a.n,b.n,c.n,d.n) ORDER BY a.n,b.n,c.n,d.n SEPARATOR ' ') FROM digits a,digits b,digits c,digits d WHERE a.n*1000+b.n*100+c.n*10+d.n<4097;
+INSERT INTO docs SELECT 2,6,GROUP_CONCAT(CONCAT('token',a.n,b.n,c.n,d.n) ORDER BY a.n,b.n,c.n,d.n SEPARATOR ' ') FROM digits a,digits b,digits c,digits d WHERE a.n*1000+b.n*100+c.n*10+d.n<1025;
+INSERT INTO docs VALUES(3,7,'anchor gamma'),(0,8,'anchor delta');
+ALTER TABLE docs ADD FULLTEXT INDEX ft(body) WITH PARSER beng;
+SELECT bucket,id FROM docs WHERE MATCH(body) AGAINST('anchor') ORDER BY bucket,id;
+bucket	id
+0	1
+0	8
+3	4
+3	7
+SELECT bucket,id FROM docs WHERE MATCH(body) AGAINST('word0000 word0511 word0512 word1023 word1024 word2048 word4096 token0000 token1024') ORDER BY bucket,id;
+bucket	id
+1	5
+2	6
+SELECT bucket,id,ROUND(MATCH(body) AGAINST('anchor word4096 token1024'),8) AS score FROM docs WHERE MATCH(body) AGAINST('anchor word4096 token1024') ORDER BY bucket,id;
+bucket	id	score
+0	1	0.37162162
+0	8	0.37162162
+1	5	0.17741935
+2	6	0.17741935
+3	4	0.37162162
+3	7	0.37162162
+UPDATE docs SET body='anchor updated' WHERE bucket=1 AND id=5;
+DELETE FROM docs WHERE bucket=0 AND id=1;
+INSERT INTO docs VALUES(2,9,'anchor inserted word4096');
+SELECT bucket,id FROM docs WHERE MATCH(body) AGAINST('anchor word4096 token1024') ORDER BY bucket,id;
+bucket	id
+0	8
+1	5
+2	6
+2	9
+3	4
+3	7
+ALTER TABLE docs DROP INDEX ft;
+ALTER TABLE docs ADD FULLTEXT INDEX ft(body) WITH PARSER beng;
+SELECT bucket,id FROM docs WHERE MATCH(body) AGAINST('anchor word4096 token1024') ORDER BY bucket,id;
+bucket	id
+0	8
+1	5
+2	6
+2	9
+3	4
+3	7
+DROP DATABASE fts_cross_documents;

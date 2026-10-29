@@ -43,7 +43,6 @@ int ObTextDaaTIter::init(const ObTextDaaTParam &param)
 
 void ObTextDaaTIter::reset()
 {
-  reset_union();
   union_id_cmp_.reset();
   bm25_param_estimator_.reset();
   // this class can know the type of dim_iters_, but ObSRDaaTIterImpl maybe not
@@ -57,7 +56,6 @@ void ObTextDaaTIter::reset()
 
 void ObTextDaaTIter::reuse(const bool switch_tablet)
 {
-  reset_union();
   if ((OB_NOT_NULL(dim_iters_) && 0 == dim_iters_->count())) {
     // do nothing
   } else {
@@ -83,15 +81,6 @@ int ObTextDaaTIter::pre_process()
   return ret;
 }
 
-void ObTextDaaTIter::reset_union()
-{
-  for (int64_t i = 0; i < MAX_UNION_DIMS; ++i) {
-    union_heads_[i] = nullptr;
-  }
-  union_pending_ = 0;
-  union_started_ = false;
-}
-
 int ObTextDaaTIter::get_next_rows(const int64_t capacity, int64_t &count)
 {
   if (is_inited_ && sql::NATURAL_LANGUAGE_MODE == mode_flag_ && !function_lookup_mode_
@@ -111,6 +100,12 @@ int ObTextDaaTIter::compare_union_ids(const ObDatum &lhs, const ObDatum &rhs, in
       cmp = (lhs.get_uint() > rhs.get_uint()) - (lhs.get_uint() < rhs.get_uint());
       return OB_SUCCESS;
     } else if (meta.type_ == ObVarcharType && meta.cs_type_ == CS_TYPE_BINARY) {
+      // Generated document IDs have a fixed width. A constant-size comparison
+      // lets the compiler inline it; retain bytewise ordering for other IDs.
+      if (lhs.len_ == OB_DOC_ID_COLUMN_BYTE_LENGTH && rhs.len_ == OB_DOC_ID_COLUMN_BYTE_LENGTH) {
+        cmp = MEMCMP(lhs.ptr_, rhs.ptr_, OB_DOC_ID_COLUMN_BYTE_LENGTH);
+        return OB_SUCCESS;
+      }
       const int64_t len = MIN(lhs.len_, rhs.len_);
       cmp = len == 0 ? 0 : MEMCMP(lhs.ptr_, rhs.ptr_, len);
       if (cmp == 0) {
@@ -131,45 +126,75 @@ int ObTextDaaTIter::get_union_rows(const int64_t capacity, int64_t &count)
   if (iter_param_->limit_param_->is_valid()
       && output_row_cnt_ >= iter_param_->limit_param_->limit_) {
     return OB_ITER_END;
+  } else if (batch_capacity <= 0) {
+    return OB_SUCCESS;
   }
-  if (!union_started_) {
-    union_pending_ = (UINT64_C(1) << dims) - 1;
-    union_started_ = true;
-  }
-  // A small natural-language membership query only needs the sorted union of
-  // its posting lists. Preserve each head across batches and advance every
-  // list sharing the emitted ID, without a merge heap or relevance collector.
-  while (OB_SUCC(ret) && count < batch_capacity) {
-    for (int64_t i = 0; OB_SUCC(ret) && i < dims; ++i) {
-      if (union_pending_ & (UINT64_C(1) << i)) {
-        auto *iter = static_cast<ObTextRetrievalDaaTTokenIter *>(dim_iters_->at(i));
-        if (OB_FAIL(iter->get_next_row())) {
-          if (OB_ITER_END == ret) {
-            union_heads_[i] = nullptr;
-            ret = OB_SUCCESS;
-          }
-        } else if (OB_FAIL(iter->get_curr_id(union_heads_[i]))) {
-        }
-      }
+  struct PostingBatch
+  {
+    ObTextRetrievalDaaTTokenIter *iter_;
+    const ObDocIdExt *ids_;
+    const ObDatum *head_;
+    int64_t count_;
+    int64_t pos_;
+  } batches[MAX_UNION_DIMS] = {};
+  auto refill = [](PostingBatch &batch) {
+    int result = OB_SUCCESS;
+    batch.iter_->consume_docids(batch.pos_);
+    batch.pos_ = 0;
+    if (OB_ITER_END == (result = batch.iter_->get_docid_batch(batch.ids_, batch.count_))) {
+      result = OB_SUCCESS;
+      batch.head_ = nullptr;
+    } else if (OB_SUCCESS == result) {
+      batch.head_ = &batch.ids_[0].get_datum();
     }
-    union_pending_ = 0;
+    return result;
+  };
+  for (int64_t i = 0; OB_SUCC(ret) && i < dims; ++i) {
+    batches[i].iter_ = static_cast<ObTextRetrievalDaaTTokenIter *>(dim_iters_->at(i));
+    ret = refill(batches[i]);
+  }
+  // Merge the dimensions' stable ID buffers directly. Only a refill goes
+  // through the scalar iterator API; advancing a posting is pointer arithmetic.
+  while (OB_SUCC(ret) && count < batch_capacity) {
     const ObDatum *minimum = nullptr;
+    uint64_t pending = 0;
     for (int64_t i = 0; OB_SUCC(ret) && i < dims; ++i) {
-      if (nullptr != union_heads_[i]) {
+      const ObDatum *head = batches[i].head_;
+      if (OB_NOT_NULL(head)) {
         int cmp = -1;
-        if (nullptr != minimum && OB_FAIL(compare_union_ids(*union_heads_[i], *minimum, cmp))) {
+        if (OB_NOT_NULL(minimum) && OB_FAIL(compare_union_ids(*head, *minimum, cmp))) {
         } else if (cmp < 0) {
-          minimum = union_heads_[i];
-          union_pending_ = UINT64_C(1) << i;
+          minimum = head;
+          pending = UINT64_C(1) << i;
         } else if (cmp == 0) {
-          union_pending_ |= UINT64_C(1) << i;
+          pending |= UINT64_C(1) << i;
         }
       }
     }
     if (OB_FAIL(ret)) {
-    } else if (nullptr == minimum) {
+    } else if (OB_ISNULL(minimum)) {
       ret = OB_ITER_END;
     } else if (OB_FAIL(cache_result(count, *minimum, 0.0))) {
+      // The final ID is consumed even when LIMIT ends this batch.
+    }
+    if ((OB_SUCC(ret) || OB_ITER_END == ret) && OB_NOT_NULL(minimum)) {
+      for (uint64_t remaining = pending; remaining != 0; remaining &= remaining - 1) {
+        const int64_t i = __builtin_ctzll(remaining);
+        PostingBatch &batch = batches[i];
+        ++batch.pos_;
+        if (batch.pos_ < batch.count_) {
+          batch.head_ = &batch.ids_[batch.pos_].get_datum();
+        } else if (OB_SUCC(ret) && count < batch_capacity) {
+          if (OB_FAIL(refill(batch))) {
+            break;
+          }
+        }
+      }
+    }
+  }
+  for (int64_t i = 0; i < dims; ++i) {
+    if (OB_NOT_NULL(batches[i].iter_)) {
+      batches[i].iter_->consume_docids(batches[i].pos_);
     }
   }
   if ((OB_SUCC(ret) || OB_ITER_END == ret) && count > 0) {

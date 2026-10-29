@@ -18,7 +18,7 @@
 #define _OCEANBASE_STORAGE_FTS_IK_OB_IK_ARBITRATOR_H_
 
 #include "lib/allocator/page_arena.h"
-#include "lib/hash/ob_hashmap.h"
+#include "lib/container/ob_se_array.h"
 #include "lib/utility/ob_macro_utils.h"
 #include "storage/fts/ik/ob_ik_token.h"
 
@@ -39,9 +39,17 @@ public:
   int output_result(TokenizeContext &ctx);
 
 private:
-  int prepare(TokenizeContext &ctx);
-
+  struct ResultChain
+  {
+    ResultChain() : chain_(nullptr), singleton_{} {}
+    explicit ResultChain(ObIKTokenChain *chain) : chain_(chain), singleton_{} {}
+    explicit ResultChain(const ObIKToken &token) : chain_(nullptr), singleton_(token) {}
+    int64_t min_offset() const { return nullptr == chain_ ? singleton_.offset_ : chain_->min_offset(); }
+    ObIKTokenChain *chain_;
+    ObIKToken singleton_;
+  };
   int add_chain(ObIKTokenChain *chain);
+  const ResultChain *find_chain(int64_t offset, int64_t &chain_idx) const;
 
   int optimize(TokenizeContext &ctx,
                ObIKTokenChain *option,
@@ -61,7 +69,8 @@ private:
 
 private:
   ObArenaAllocator alloc_;
-  hash::ObHashMap<int64_t, ObIKTokenChain *> chains_;
+  // Disjoint chains are produced in increasing text-offset order.
+  common::ObSEArray<ResultChain, 16> chains_;
 
 private:
   DISALLOW_COPY_AND_ASSIGN(ObIKArbitrator);

@@ -221,7 +221,7 @@ int ObExprTokenize::parse_param(const ObExpr &expr,
 int ObExprTokenize::construct_ft_parser_inner_name(const ObString &input_str, TokenizeParam &param)
 {
   int ret = OB_SUCCESS;
-  storage::ObFTParser parser;
+  storage::ObFTParser &parser = param.parser_;
 
   char *parser_name_buf = nullptr;
   if (OB_ISNULL(parser_name_buf
@@ -375,16 +375,26 @@ int ObExprTokenize::parse_parser_properties(const ObExpr &expr,
 int ObExprTokenize::TokenizeParam::reform_parser_properties(const ObString &properties)
 {
   int ret = OB_SUCCESS;
-  storage::ObFTParserJsonProps parser_properties;
-
-  if (OB_FAIL(parser_properties.init())) {
-  } else if (OB_FAIL(parser_properties.parse_from_valid_str(properties))) {
-    LOG_USER_ERROR(OB_INVALID_ARGUMENT, "parser properties invalid.");
-  } else if (OB_FAIL(parser_properties.rebuild_props_for_ddl(parser_name_,
-                                                             ObCollationType::CS_TYPE_UTF8MB4_BIN,
-                                                             true))) {
-  } else if (OB_FAIL(parser_.parse_from_str(parser_name_.ptr(), parser_name_.length()))) {
-  } else if (OB_FAIL(parser_property_.parse_for_parser_helper(parser_, parser_properties))) {
+  if (properties.empty()) {
+    // The typed property constructor has the same defaults as DDL validation.
+    // An omitted additional_args needs no JSON object or parser-name round trip.
+    if (parser_.is_ik()) {
+      parser_property_.dict_table_ = ObString(storage::ObFTSLiteral::CONFIG_NAME_DICT_TABLE);
+      parser_property_.stopword_table_ = ObString(storage::ObFTSLiteral::CONFIG_NAME_STOPWORD_TABLE);
+      parser_property_.quantifier_table_ = ObString(storage::ObFTSLiteral::CONFIG_NAME_QUANTIFIER_TABLE);
+    } else if (!parser_.is_space() && !parser_.is_beng() && !parser_.is_ngram() && !parser_.is_ngram2()) {
+      ret = OB_FUNCTION_NOT_DEFINED;
+    }
+  } else {
+    storage::ObFTParserJsonProps parser_properties;
+    if (OB_FAIL(parser_properties.init())) {
+    } else if (OB_FAIL(parser_properties.parse_from_valid_str(properties))) {
+      LOG_USER_ERROR(OB_INVALID_ARGUMENT, "parser properties invalid.");
+    } else if (OB_FAIL(parser_properties.rebuild_props_for_ddl(parser_name_,
+                                                               ObCollationType::CS_TYPE_UTF8MB4_BIN,
+                                                               true))) {
+    } else if (OB_FAIL(parser_property_.parse_for_parser_helper(parser_, parser_properties))) {
+    }
   }
 
   return ret;

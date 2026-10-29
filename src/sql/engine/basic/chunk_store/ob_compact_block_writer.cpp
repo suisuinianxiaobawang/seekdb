@@ -90,6 +90,145 @@ int ObCompactBlockWriter::add_row(const ObChunkDatumStore::StoredRow &src_sr, Ob
   return ret;
 }
 
+int ObCompactBlockWriter::add_batch(const common::ObDatum **datums,
+                                   const common::ObIArray<ObExpr *> &exprs,
+                                   const uint16_t selector[], const int64_t size,
+                                   ObChunkDatumStore::StoredRow **stored_rows, BatchCtx *batch_ctx)
+{
+  int ret = OB_SUCCESS;
+  if (OB_FAIL(ensure_init())) {
+  } else if (OB_UNLIKELY(size < 0 || exprs.count() != row_meta_->col_cnt_)) {
+    ret = OB_INVALID_ARGUMENT;
+  } else if (0 == size) {
+  } else if (OB_ISNULL(datums) || OB_ISNULL(selector) || OB_ISNULL(batch_ctx)
+             || OB_ISNULL(batch_ctx->row_size_array_) || OB_ISNULL(batch_ctx->stored_rows_)) {
+    ret = OB_INVALID_ARGUMENT;
+  } else {
+    uint32_t *sizes = batch_ctx->row_size_array_;
+    for (int64_t i = 0; i < size; ++i) {
+      sizes[i] = row_meta_->var_data_off_;
+    }
+    // Size variable columns once per batch, without reevaluating expressions.
+    for (int64_t col = 0; OB_SUCC(ret) && col < exprs.count(); ++col) {
+      if (0 == row_meta_->column_length_[col] && OB_NOT_NULL(datums[col])) {
+        const bool is_batch = exprs.at(col)->is_batch_result();
+        for (int64_t i = 0; OB_SUCC(ret) && i < size; ++i) {
+          const ObDatum &datum = datums[col][is_batch ? selector[i] : 0];
+          if (!datum.is_null()) {
+            if (OB_UNLIKELY(datum.len_ > UINT32_MAX - sizes[i])) {
+              ret = OB_SIZE_OVERFLOW;
+            } else {
+              sizes[i] += datum.len_;
+            }
+          }
+        }
+      }
+    }
+    const int64_t bitmap_size = sql::ObBitVector::memory_size(row_meta_->col_cnt_);
+    const int64_t var_count = row_meta_->col_cnt_ - row_meta_->fixed_cnt_;
+    int64_t row_idx = 0;
+    while (OB_SUCC(ret) && row_idx < size) {
+      cur_row_offset_width_ = get_offset_width(sizes[row_idx]);
+      const int64_t row_size = sizes[row_idx] + HEAD_SIZE + bitmap_size
+          + (var_count + 1) * cur_row_offset_width_;
+      if (OB_UNLIKELY(row_size > INT32_MAX)) {
+        ret = OB_SIZE_OVERFLOW;
+      } else if (OB_FAIL(ensure_write(row_size))) {
+      } else if (BASE_OFFSET_SIZE == cur_row_offset_width_) {
+        ret = inner_add_batch<uint16_t>(datums, exprs, selector, size, row_idx, *batch_ctx);
+      } else {
+        ret = inner_add_batch<uint32_t>(datums, exprs, selector, size, row_idx, *batch_ctx);
+      }
+    }
+    // Compact rows have no StoredRow view in the block, as in add_row().
+    if (OB_NOT_NULL(stored_rows)) {
+      for (int64_t i = 0; i < size; ++i) {
+        stored_rows[i] = nullptr;
+      }
+    }
+  }
+  return ret;
+}
+
+template <typename T>
+int ObCompactBlockWriter::inner_add_batch(const common::ObDatum **datums,
+                                         const common::ObIArray<ObExpr *> &exprs,
+                                         const uint16_t selector[], const int64_t size,
+                                         int64_t &row_idx, BatchCtx &batch_ctx)
+{
+  int ret = OB_SUCCESS;
+  const ChunkRowMeta &meta = *row_meta_;
+  const int64_t bitmap_size = sql::ObBitVector::memory_size(meta.col_cnt_);
+  const int64_t var_count = meta.col_cnt_ - meta.fixed_cnt_;
+  const int64_t offsets_pos = HEAD_SIZE + bitmap_size;
+  const int64_t data_pos = offsets_pos + (var_count + 1) * sizeof(T);
+  const int64_t begin = row_idx;
+  const int64_t available = get_remain();
+  char *buf = get_cur_buf();
+  uint32_t *offsets = batch_ctx.row_size_array_;
+  // Reuse the private pointer scratch space for compact-row addresses. No
+  // StoredRow objects are constructed or exposed through these pointers.
+  ObChunkDatumStore::StoredRow **rows = batch_ctx.stored_rows_;
+  int64_t bytes = 0;
+  for (; row_idx < size; ++row_idx) {
+    const uint32_t data_size = offsets[row_idx];
+    const int64_t row_size = data_size + data_pos;
+    if (get_offset_width(data_size) != sizeof(T) || row_size > available - bytes) {
+      break;
+    }
+    char *row = buf + bytes;
+    rows[row_idx] = reinterpret_cast<ObChunkDatumStore::StoredRow *>(row);
+    const uint32_t stored_size = row_size;
+    MEMCPY(row, &stored_size, sizeof(stored_size));
+    const uint8_t width = sizeof(T);
+    MEMCPY(row + sizeof(stored_size), &width, sizeof(width));
+    sql::to_bit_vector(row + HEAD_SIZE)->reset(meta.col_cnt_);
+    const T final_offset = data_size;
+    MEMCPY(row + offsets_pos + var_count * sizeof(T), &final_offset, sizeof(T));
+    offsets[row_idx] = meta.var_data_off_;
+    bytes += row_size;
+  }
+  if (OB_UNLIKELY(begin == row_idx)) {
+    ret = OB_ERR_UNEXPECTED;
+  }
+  int64_t var_idx = 0;
+  for (int64_t col = 0; OB_SUCC(ret) && col < meta.col_cnt_; ++col) {
+    const int64_t fixed_len = meta.column_length_[col];
+    const int64_t fixed_pos = data_pos + meta.column_offset_[col];
+    const ObDatum *values = datums[col];
+    const bool is_batch = OB_NOT_NULL(values) && exprs.at(col)->is_batch_result();
+    for (int64_t i = begin; OB_SUCC(ret) && i < row_idx; ++i) {
+      char *row = reinterpret_cast<char *>(rows[i]);
+      const ObDatum *datum = OB_ISNULL(values) ? nullptr : &values[is_batch ? selector[i] : 0];
+      if (0 == fixed_len) {
+        const T offset = offsets[i];
+        MEMCPY(row + offsets_pos + var_idx * sizeof(T), &offset, sizeof(T));
+      }
+      if (OB_ISNULL(datum) || datum->is_null()) {
+        sql::to_bit_vector(row + HEAD_SIZE)->set(col);
+      } else if (0 == fixed_len) {
+        MEMCPY(row + data_pos + offsets[i], datum->ptr_, datum->len_);
+        offsets[i] += datum->len_;
+      } else if (OB_UNLIKELY(datum->len_ != fixed_len)) {
+        ret = OB_ERR_UNEXPECTED;
+      } else {
+        MEMCPY(row + fixed_pos, datum->ptr_, fixed_len);
+      }
+    }
+    var_idx += 0 == fixed_len;
+  }
+  if (OB_SUCC(ret)) {
+    if (OB_FAIL(advance(bytes))) {
+    } else {
+      const int64_t additional_rows = row_idx - begin - 1;
+      cur_blk_->cnt_ += additional_rows;
+      store_->inc_block_id_cnt(additional_rows);
+      last_row_pos_ = reinterpret_cast<char *>(rows[row_idx - 1]);
+    }
+  }
+  return ret;
+}
+
 
 int ObCompactBlockWriter::add_row(const blocksstable::ObStorageDatum *storage_datums,
                                   const int64_t column_count,

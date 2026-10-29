@@ -1,0 +1,35 @@
+# description: Full-text and secondary index sorts preserve mixed datums across compact-store batches and spills.
+SET NAMES utf8mb4;
+SET ob_query_timeout=100000000;
+--disable_warnings
+DROP DATABASE IF EXISTS fts_compact_sort;
+--enable_warnings
+CREATE DATABASE fts_compact_sort;
+USE fts_compact_sort;
+CREATE TABLE digits(n INT PRIMARY KEY);
+INSERT INTO digits VALUES(0),(1),(2),(3),(4),(5),(6),(7),(8),(9);
+CREATE TABLE docs(id BIGINT PRIMARY KEY,g INT,v VARCHAR(128) COLLATE utf8mb4_unicode_ci,b VARBINARY(1024),amount DECIMAL(30,9),stamp DATETIME(6),body TEXT);
+INSERT INTO docs SELECT a.n+10*b.n+100*c.n+1000*d.n,IF(MOD(a.n+10*b.n+100*c.n+1000*d.n,7)=0,NULL,MOD(a.n+10*b.n+100*c.n+1000*d.n,31)),IF(MOD(a.n+10*b.n+100*c.n+1000*d.n,11)=0,NULL,CONCAT(IF(MOD(a.n,2)=0,'数据库 É','数据库 é'),REPEAT(' ',MOD(b.n,3)))),IF(MOD(a.n+10*b.n+100*c.n+1000*d.n,13)=0,NULL,REPEAT(UNHEX('00ff6162'),1+MOD(a.n+10*b.n+100*c.n+1000*d.n,127))),IF(MOD(a.n,3)=0,NULL,(a.n+10*b.n+100*c.n+1000*d.n-4096)/1000),IF(MOD(a.n,5)=0,NULL,TIMESTAMPADD(MICROSECOND,a.n+10*b.n+100*c.n+1000*d.n,'2024-01-01 00:00:00')),CONCAT('alpha bravo 数据库全文索引 ',REPEAT('prefix00 prefix01 prefix02 prefix03 prefix04 prefix05 prefix06 prefix07 prefix08 prefix09 prefix10 prefix11 prefix12 prefix13 prefix14 prefix15 prefix16 prefix17 prefix18 prefix19 prefix20 prefix21 prefix22 prefix23 prefix24 prefix25 prefix26 prefix27 prefix28 prefix29 prefix30 prefix31 prefix32 prefix33 prefix34 prefix35 prefix36 prefix37 prefix38 prefix39 prefix40 prefix41 prefix42 prefix43 prefix44 prefix45 prefix46 prefix47 prefix48 prefix49 prefix50 prefix51 prefix52 prefix53 prefix54 prefix55 prefix56 prefix57 prefix58 prefix59 prefix60 prefix61 prefix62 prefix63 prefix64 prefix65 prefix66 prefix67 prefix68 prefix69 prefix70 prefix71 prefix72 prefix73 prefix74 prefix75 prefix76 prefix77 prefix78 prefix79 ',1+MOD(a.n,3))) FROM digits a,digits b,digits c,digits d WHERE a.n+10*b.n+100*c.n+1000*d.n<8193;
+ALTER TABLE docs ADD INDEX secondary_sort(g,v,b,amount,stamp);
+ALTER TABLE docs ADD FULLTEXT INDEX ft(body) WITH PARSER ik;
+SELECT COUNT(*),SUM(id),BIT_XOR(id) FROM docs FORCE INDEX(secondary_sort) WHERE g IS NULL OR g BETWEEN 3 AND 17;
+SELECT id,g,LENGTH(v),LENGTH(b),HEX(LEFT(b,4)),amount,stamp FROM docs FORCE INDEX(secondary_sort) ORDER BY g,v,b,amount,stamp,id LIMIT 20;
+SELECT COUNT(*),SUM(id),BIT_XOR(id) FROM docs WHERE MATCH(body) AGAINST('prefix00 prefix17 prefix79');
+SELECT COUNT(*),SUM(id),BIT_XOR(id) FROM docs WHERE MATCH(body) AGAINST('数据库 全文索引');
+SELECT COUNT(*) FROM (SELECT id FROM docs WHERE MATCH(body) AGAINST('prefix00 prefix79') LIMIT 513 OFFSET 512)s;
+CREATE TABLE parts LIKE docs;
+ALTER TABLE parts DROP INDEX secondary_sort;
+ALTER TABLE parts DROP INDEX ft;
+ALTER TABLE parts PARTITION BY HASH(id) PARTITIONS 4;
+INSERT INTO parts SELECT * FROM docs;
+ALTER TABLE parts ADD INDEX secondary_sort(g,v,b,amount,stamp);
+ALTER TABLE parts ADD FULLTEXT INDEX ft(body) WITH PARSER ik;
+SELECT COUNT(*),SUM(id),BIT_XOR(id) FROM parts FORCE INDEX(secondary_sort) WHERE g IS NULL OR g BETWEEN 3 AND 17;
+SELECT COUNT(*),SUM(id),BIT_XOR(id) FROM parts WHERE MATCH(body) AGAINST('prefix00 prefix17 prefix79');
+UPDATE docs SET body='alpha charlie 全文检索' WHERE MOD(id,19)=0;
+DELETE FROM docs WHERE MOD(id,23)=0;
+SELECT COUNT(*),SUM(id),BIT_XOR(id) FROM docs WHERE MATCH(body) AGAINST('prefix00 charlie');
+ALTER TABLE docs DROP INDEX ft;
+ALTER TABLE docs ADD FULLTEXT INDEX ft(body) WITH PARSER ik;
+SELECT COUNT(*),SUM(id),BIT_XOR(id) FROM docs WHERE MATCH(body) AGAINST('prefix00 charlie');
+DROP DATABASE fts_compact_sort;

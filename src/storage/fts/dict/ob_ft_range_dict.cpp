@@ -307,6 +307,8 @@ int ObFTRangeDict::init()
     ret = OB_INIT_TWICE;
   } else {
     if (OB_FAIL(build_dict_from_cache(*range_container_))) {
+    } else if (build_direct_index_) {
+      build_range_index();
     }
     is_inited_ = true;
   }
@@ -378,8 +380,52 @@ int ObFTRangeDict::match_with_hit(const ObString &single_word,
   return last_hit.dict_->match_with_hit(single_word, last_hit, hit);
 }
 
+void ObFTRangeDict::build_range_index()
+{
+  // Two leading UTF-8 bytes usually identify a unique range. Prefixes straddling
+  // a range boundary retain the original binary search, as do other charsets.
+  if (desc_.charset_ == CHARSET_UTF8MB4 && desc_.coll_type_ == CS_TYPE_UTF8MB4_BIN
+      && range_dicts_.size() < UINT16_MAX - 1) {
+    range_index_ = static_cast<uint16_t *>(range_alloc_.alloc(65536 * sizeof(uint16_t)));
+    if (range_index_ != nullptr) {
+      MEMSET(range_index_, 0xff, 65536 * sizeof(uint16_t));
+      const auto prefix = [](const ObString &word) -> uint32_t {
+        return (static_cast<uint32_t>(static_cast<uint8_t>(word.ptr()[0])) << 8)
+            | (word.length() > 1 ? static_cast<uint8_t>(word.ptr()[1]) : 0);
+      };
+      for (int64_t i = 0; i < range_dicts_.size(); ++i) {
+        const ObString start = range_dicts_[i].start_.get_word();
+        const ObString end = range_dicts_[i].end_.get_word();
+        if (start.empty() || end.empty() || prefix(start) > prefix(end)) {
+          range_index_ = nullptr;
+          break;
+        }
+        for (uint32_t p = prefix(start); p <= prefix(end); ++p) {
+          range_index_[p] = range_index_[p] == UINT16_MAX ? i : UINT16_MAX - 1;
+        }
+      }
+    }
+  }
+}
+
 int ObFTRangeDict::find_first_char_range(const ObString &single_word, ObIFTDict *&dict) const
 {
+  if (range_index_ != nullptr && !single_word.empty()) {
+    const uint32_t prefix = (static_cast<uint32_t>(static_cast<uint8_t>(single_word.ptr()[0])) << 8)
+        | (single_word.length() > 1 ? static_cast<uint8_t>(single_word.ptr()[1]) : 0);
+    const uint16_t index = range_index_[prefix];
+    if (index == UINT16_MAX) {
+      return OB_ENTRY_NOT_EXIST;
+    } else if (index < range_dicts_.size()) {
+      const ObFTRange &range = range_dicts_[index];
+      if (range.start_.get_word().compare(single_word) <= 0
+          && range.end_.get_word().compare(single_word) >= 0) {
+        dict = range.dict_;
+        return OB_SUCCESS;
+      }
+      return OB_ENTRY_NOT_EXIST;
+    }
+  }
   // Ranges are built in dictionary order without splitting a first character.
   // UTF8MB4_BIN compares bytes and then length, just like ObString::compare.
   const int64_t count = range_dicts_.size();

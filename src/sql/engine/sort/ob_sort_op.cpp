@@ -202,6 +202,9 @@ int ObSortOp::get_topn_count(int64_t &topn_cnt)
 int ObSortOp::process_sort()
 {
   int ret = OB_SUCCESS;
+  // Encoded DDL sorts can spill sorted runs directly. Staging the remaining
+  // input in a compact store adds another full write/read pass.
+  const bool prescan = MY_SPEC.prescan_enabled_ && !MY_SPEC.enable_encode_sortkey_opt_;
   if (read_func_ == &ObSortOp::prefix_sort_impl_next) {
     // prefix sort get child row in it's own wrap, do nothing here
   } else if (read_func_ == &ObSortOp::sort_impl_next) {
@@ -216,12 +219,12 @@ int ObSortOp::process_sort()
         sort_row_count_++;
         OZ(sort_impl_.add_row(MY_SPEC.all_exprs_, need_dump));
         sort_impl_.collect_memory_dump_info(op_monitor_info_);
-        if (need_dump && MY_SPEC.prescan_enabled_) {
+        if (need_dump && prescan) {
           break;
         }
       }
     }
-    if (OB_SUCC(ret) && need_dump && MY_SPEC.prescan_enabled_
+    if (OB_SUCC(ret) && need_dump && prescan
         && OB_FAIL(scan_all_then_sort())) {
       if (OB_ITER_END != ret) {
       }
@@ -240,6 +243,7 @@ int ObSortOp::process_sort()
 int ObSortOp::process_sort_batch()
 {
   int ret = OB_SUCCESS;
+  const bool prescan = MY_SPEC.prescan_enabled_ && !MY_SPEC.enable_encode_sortkey_opt_;
   if (read_batch_func_ == &ObSortOp::prefix_sort_impl_next_batch) {
     // prefix sort get child row in it's own wrap, do nothing here
   } else if (read_batch_func_ == &ObSortOp::sort_impl_next_batch) {
@@ -257,12 +261,12 @@ int ObSortOp::process_sort_batch()
                                   input_brs->size_, need_dump));
           sort_impl_.collect_memory_dump_info(op_monitor_info_);
         }
-        if (input_brs->end_ || (need_dump && MY_SPEC.prescan_enabled_)) {
+        if (input_brs->end_ || (need_dump && prescan)) {
           break;
         }
       }
     }
-    if (OB_SUCC(ret) && need_dump && MY_SPEC.prescan_enabled_
+    if (OB_SUCC(ret) && need_dump && prescan
         && OB_FAIL(scan_all_then_sort_batch())) {
       if (OB_ITER_END != ret) {
       }

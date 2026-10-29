@@ -32,6 +32,98 @@ namespace oceanbase
 using namespace common;
 namespace sql
 {
+static int constrain_counted_fulltext_limit(ObRawExpr *expr,
+                                          ObTransformerCtx *ctx,
+                                          bool &valid)
+{
+  int ret = OB_SUCCESS;
+  if (nullptr != expr && valid) {
+    int64_t value = 0;
+    bool is_null = false;
+    ObConstRawExpr *upper_bound = nullptr;
+    ObRawExpr *constraint = nullptr;
+    if (OB_FAIL(ObTransformUtils::get_expr_int_value(expr,
+        &ctx->exec_ctx_->get_physical_plan_ctx()->get_param_store(),
+        ctx->exec_ctx_, ctx->allocator_, value, is_null))) {
+    } else if (is_null || value < 0 || value > INT32_MAX) {
+      // Preserve the existing Top-K validation for unbounded/oversized values.
+      valid = false;
+    } else if (OB_FAIL(ObRawExprUtils::build_const_int_expr(
+        *ctx->expr_factory_, ObIntType, INT32_MAX, upper_bound))) {
+    } else if (OB_FAIL(ObRawExprUtils::create_double_op_expr(*ctx->expr_factory_,
+        ctx->session_info_, T_OP_LE, constraint, expr, upper_bound))) {
+    } else if (OB_FAIL(ObTransformUtils::add_param_bool_constraint(ctx, constraint, true))) {
+    }
+  }
+  return ret;
+}
+
+// FTS disables the regular rewrite rules. Handle this cardinality-only case
+// here, after the child has received its implicit relevance ordering.
+static int simplify_counted_fulltext_view(ObDMLStmt *stmt,
+                                        ObTransformerCtx *ctx,
+                                        bool &trans_happened)
+{
+  int ret = OB_SUCCESS;
+  trans_happened = false;
+  if (!stmt->is_select_stmt()) {
+    // do nothing
+  } else {
+    ObSelectStmt *outer = static_cast<ObSelectStmt *>(stmt);
+    bool valid = outer->is_scala_group_by() && outer->get_table_items().count() == 1
+        && outer->get_column_items().empty() && outer->get_condition_exprs().empty()
+        && outer->get_subquery_exprs().empty() && !outer->has_window_function()
+        && !outer->has_distinct() && !outer->is_contains_assignment()
+        && !outer->is_calc_found_rows()
+        && !outer->get_query_ctx()->get_global_hint().disable_query_transform();
+    for (int64_t i = 0; valid && i < outer->get_aggr_item_size(); ++i) {
+      const ObAggFunRawExpr *agg = outer->get_aggr_item(i);
+      valid = nullptr != agg && T_FUN_COUNT == agg->get_expr_type()
+          && !agg->is_param_distinct() && 0 == agg->get_real_param_count();
+    }
+    TableItem *table = valid ? outer->get_table_item(0) : nullptr;
+    ObSelectStmt *view = nullptr;
+    if (nullptr != table && table->is_generated_table()
+        && nullptr != (view = table->ref_query_)) {
+      valid = view->has_limit() && !view->is_fetch_with_ties()
+          && nullptr == view->get_limit_percent_expr() && !view->is_calc_found_rows()
+          && !view->has_distinct() && !view->has_group_by() && !view->has_window_function()
+          && !view->is_contains_assignment() && view->get_subquery_exprs().empty()
+          && view->get_table_items().count() == 1 && view->get_table_item(0)->is_basic_table()
+          && view->get_match_exprs().count() == 1
+          && NATURAL_LANGUAGE_MODE == view->get_match_exprs().at(0)->get_mode_flag();
+      // Drop only the implicit MATCH ordering. Row values, score thresholds,
+      // other aggregates, outer filters and tie-sensitive limits stay intact.
+      for (int64_t i = 0; valid && i < view->get_order_item_size(); ++i) {
+        valid = view->get_order_item(i).expr_ == view->get_match_exprs().at(0);
+      }
+      ObSqlBitSet<> removed;
+      for (int64_t i = 0; OB_SUCC(ret) && valid && i < view->get_select_item_size(); ++i) {
+        ObRawExpr *expr = view->get_select_item(i).expr_;
+        valid = nullptr != expr && expr->is_column_ref_expr();
+        if (valid && OB_FAIL(removed.add_member(i))) {
+        }
+      }
+      if (OB_SUCC(ret) && valid) {
+        // Bounds become plan-cache constraints, so a prepared execution with a
+        // larger LIMIT/OFFSET cannot reuse a plan that bypasses Top-K validation.
+        if (OB_FAIL(constrain_counted_fulltext_limit(view->get_limit_expr(), ctx, valid))) {
+        } else if (OB_FAIL(constrain_counted_fulltext_limit(view->get_offset_expr(), ctx, valid))) {
+        }
+      }
+      if (OB_SUCC(ret) && valid) {
+        // COUNT(*) needs no projected document ID or main-table lookup.
+        if (OB_FAIL(ObTransformUtils::remove_select_items(ctx, table->table_id_, *view, *outer, removed))) {
+        } else {
+          view->get_order_items().reset();
+          trans_happened = true;
+        }
+      }
+    }
+  }
+  return ret;
+}
+
 int ObTransformPreProcess::transform_one_stmt(common::ObIArray<ObParentDMLStmt> &parent_stmts,
                                               ObDMLStmt *&stmt,
                                               bool &trans_happened)
@@ -180,6 +272,12 @@ int ObTransformPreProcess::transform_one_stmt(common::ObIArray<ObParentDMLStmt> 
     if (OB_SUCC(ret)) {
       if (stmt->get_match_exprs().count() > 0 &&
           OB_FAIL(preserve_order_for_fulltext_search(stmt, is_happened))) {
+      } else {
+        trans_happened |= is_happened;
+      }
+    }
+    if (OB_SUCC(ret)) {
+      if (OB_FAIL(simplify_counted_fulltext_view(stmt, ctx_, is_happened))) {
       } else {
         trans_happened |= is_happened;
       }

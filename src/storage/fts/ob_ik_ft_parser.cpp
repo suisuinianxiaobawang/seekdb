@@ -40,6 +40,19 @@ namespace oceanbase
 {
 namespace storage
 {
+class ObIKFTParser::Processors final
+{
+public:
+  Processors(const ObIFTDict &main_dict, const ObIFTDict &quan_dict, ObIAllocator &allocator)
+      : letter_(), quantifier_(quan_dict, allocator), cjk_(main_dict, allocator), surrogate_()
+  {}
+
+  ObIKLetterProcessor letter_;
+  ObIKQuantifierProcessor quantifier_;
+  ObIKCJKProcessor cjk_;
+  ObIKSurrogateProcessor surrogate_;
+};
+
 int ObIKFTParser::init(const ObFTParserParam &param)
 {
   int ret = OB_SUCCESS;
@@ -52,7 +65,7 @@ int ObIKFTParser::init(const ObFTParserParam &param)
       ret = OB_INVALID_ARGUMENT;
     } else if (CS_TYPE_INVALID == (coll_type_ = ObCharset::collation_type(param.cs_->name))) {
       ret = OB_INVALID_ARGUMENT;
-    } else if (OB_FAIL(init_dict(param))) {
+    } else if (OB_ISNULL(dict_main_) && OB_FAIL(init_dict(param))) {
     } else if (OB_FAIL(init_ctx(param))) {
     } else if (OB_FAIL(init_segmenter(param))) {
     }
@@ -134,12 +147,12 @@ int ObIKFTParser::process_one_char(TokenizeContext &ctx,
                                    const ObFTCharUtil::CharType type)
 {
   int ret = OB_SUCCESS;
-  // proces by char with all segmenters
-  for (ObList<ObIIKProcessor *, ObIAllocator>::iterator iter = segmenters_.begin();
-       OB_SUCC(ret) && iter != segmenters_.end();
-       iter++) {
-    if (OB_FAIL((*iter)->do_process(ctx, ch, char_len, type))) {
-    }
+  // Preserve the stateful processor order, including transitions that flush a
+  // previous token. These four built-ins never change during an IK parse.
+  if (OB_FAIL(processors_->letter_.ObIKLetterProcessor::do_process(ctx, ch, char_len, type))) {
+  } else if (OB_FAIL(processors_->quantifier_.ObIKQuantifierProcessor::do_process(ctx, ch, char_len, type))) {
+  } else if (OB_FAIL(processors_->cjk_.ObIKCJKProcessor::do_process(ctx, ch, char_len, type))) {
+  } else if (OB_FAIL(processors_->surrogate_.ObIKSurrogateProcessor::do_process(ctx, ch, char_len, type))) {
   }
   return ret;
 }
@@ -253,6 +266,15 @@ int ObIKFTParser::init_dict(const ObFTParserParam &param)
                                   ObCharsetType::CHARSET_UTF8MB4,
                                   ObCollationType::CS_TYPE_UTF8MB4_BIN);
 
+  if (OB_SUCC(ret) && !should_read_newest_table()) {
+    borrowed_dicts_ = true;
+    if (OB_FAIL(hub_->get_shared_dict(main_dict_desc, dict_main_))) {
+    } else if (OB_FAIL(hub_->get_shared_dict(quan_dict_desc, dict_quan_))) {
+    } else if (OB_FAIL(hub_->get_shared_dict(stopword_dict_desc, dict_stop_))) {
+    }
+    return ret;
+  }
+  borrowed_dicts_ = false;
   if (should_read_newest_table()) {
     // clear dict cache, always false now
   } else {
@@ -310,75 +332,60 @@ int ObIKFTParser::init_ctx(const ObFTParserParam &param)
 int ObIKFTParser::init_segmenter(const ObFTParserParam &param)
 {
   int ret = OB_SUCCESS;
-  // do have an order
-  ObIKLetterProcessor *letter_seg = nullptr;
-  ObIKQuantifierProcessor *cnqsg = nullptr;
-  ObIKCJKProcessor *cjksg = nullptr;
-  ObIKSurrogateProcessor *surrogate_seg = nullptr;
-  if (OB_ISNULL(letter_seg = OB_NEWx(ObIKLetterProcessor, &allocator_))) {
-    ret = OB_ALLOCATE_MEMORY_FAILED;
-  } else if (OB_ISNULL(dict_quan_)) {
+  if (OB_ISNULL(dict_quan_) || OB_ISNULL(dict_main_)) {
     ret = OB_ERR_UNEXPECTED;
-  } else if (OB_ISNULL(cnqsg = OB_NEWx(ObIKQuantifierProcessor, &allocator_, *dict_quan_, allocator_))) {
+  } else if (OB_ISNULL(processors_ = OB_NEWx(Processors, &allocator_, *dict_main_, *dict_quan_, allocator_))) {
     ret = OB_ALLOCATE_MEMORY_FAILED;
-  } else if (OB_ISNULL(dict_main_)) {
-    ret = OB_ERR_UNEXPECTED;
-  } else if (OB_ISNULL(cjksg = OB_NEWx(ObIKCJKProcessor, &allocator_, *dict_main_, allocator_))) {
-    ret = OB_ALLOCATE_MEMORY_FAILED;
-  } else if (OB_ISNULL(surrogate_seg = OB_NEWx(ObIKSurrogateProcessor, &allocator_))) {
-    ret = OB_ALLOCATE_MEMORY_FAILED;
-  } else if (OB_FAIL(segmenters_.push_back(letter_seg))) {
-  } else if (FALSE_IT(letter_seg = nullptr)) {
-  } else if (OB_FAIL(segmenters_.push_back(cnqsg))) {
-  } else if (FALSE_IT(cnqsg = nullptr)) {
-  } else if (OB_FAIL(segmenters_.push_back(cjksg))) {
-  } else if (FALSE_IT(cjksg = nullptr)) {
-  } else if (OB_FAIL(segmenters_.push_back(surrogate_seg))) {
-  } else if (OB_FALSE_IT(surrogate_seg = nullptr)) {
-  }
-  // push back by order, quantifier is before cjk
-
-  if (OB_FAIL(ret)) {
-    OB_DELETEx(ObIKLetterProcessor, &allocator_, letter_seg);
-    OB_DELETEx(ObIKQuantifierProcessor, &allocator_, cnqsg);
-    OB_DELETEx(ObIKCJKProcessor, &allocator_, cjksg);
-    OB_DELETEx(ObIKSurrogateProcessor, &allocator_, surrogate_seg);
   }
   return ret;
 }
 
-void ObIKFTParser::reset()
+void ObIKFTParser::reuse()
 {
   if (!OB_ISNULL(ctx_)) {
     ctx_->~TokenizeContext();
     allocator_.free(ctx_);
+    ctx_ = nullptr;
   }
 
-  for (ObIIKProcessor *segmenter : segmenters_) {
-    if (!OB_ISNULL(segmenter)) {
-      segmenter->~ObIIKProcessor();
-      allocator_.free(segmenter);
-    }
+  if (OB_NOT_NULL(processors_)) {
+    OB_DELETEx(Processors, &allocator_, processors_);
+    processors_ = nullptr;
   }
-  segmenters_.clear();
+  is_inited_ = false;
+}
+
+void ObIKFTParser::reset()
+{
+  reuse();
 
   cache_main_.reset();
   cache_quan_.reset();
   cache_stop_.reset();
 
   if (!OB_ISNULL(dict_main_)) {
-    dict_main_->~ObIFTDict();
-    allocator_.free(dict_main_);
+    if (!borrowed_dicts_) {
+      dict_main_->~ObIFTDict();
+      dict_allocator_.free(dict_main_);
+    }
+    dict_main_ = nullptr;
   }
   if (!OB_ISNULL(dict_quan_)) {
-    dict_quan_->~ObIFTDict();
-    allocator_.free(dict_quan_);
+    if (!borrowed_dicts_) {
+      dict_quan_->~ObIFTDict();
+      dict_allocator_.free(dict_quan_);
+    }
+    dict_quan_ = nullptr;
   }
   if (!OB_ISNULL(dict_stop_)) {
-    dict_stop_->~ObIFTDict();
-    allocator_.free(dict_stop_);
+    if (!borrowed_dicts_) {
+      dict_stop_->~ObIFTDict();
+      dict_allocator_.free(dict_stop_);
+    }
+    dict_stop_ = nullptr;
   }
 
+  borrowed_dicts_ = false;
   is_inited_ = false;
 }
 
@@ -390,12 +397,12 @@ int ObIKFTParser::build_dict_from_cache(const ObFTDictDesc &desc,
   int ret = OB_SUCCESS;
   if (OB_ISNULL(hub_)) {
     ret = OB_ERR_UNEXPECTED;
-  } else if (OB_ISNULL(dict = OB_NEWx(ObFTRangeDict, &allocator_, allocator_, &container, desc))) {
+  } else if (OB_ISNULL(dict = OB_NEWx(ObFTRangeDict, &dict_allocator_, dict_allocator_, &container, desc))) {
     ret = OB_ALLOCATE_MEMORY_FAILED;
   } else if (OB_FAIL(dict->init())) {
   }
   if (OB_FAIL(ret)) {
-    OB_DELETEx(ObIFTDict, &allocator_, dict);
+    OB_DELETEx(ObIFTDict, &dict_allocator_, dict);
   }
   return ret;
 }

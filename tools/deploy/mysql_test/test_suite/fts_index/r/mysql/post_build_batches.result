@@ -1,0 +1,259 @@
+SET NAMES utf8mb4;
+SET group_concat_max_len=100000;
+DROP DATABASE IF EXISTS fts_post_build_batches;
+CREATE DATABASE fts_post_build_batches;
+USE fts_post_build_batches;
+CREATE TABLE digits(n INT PRIMARY KEY);
+INSERT INTO digits VALUES(0),(1),(2),(3),(4),(5),(6),(7),(8),(9);
+CREATE TABLE docs(id BIGINT PRIMARY KEY,body LONGTEXT);
+INSERT INTO docs VALUES(-9223372036854775808,'database alpha alpha 中文检索'),(-1,NULL),(0,''),(1,'the and of'),(2,'Database beta beta beta 中文数据库'),(9223372036854775807,'database gamma 中文全文索引');
+INSERT INTO docs SELECT 10,GROUP_CONCAT(CONCAT('word',a.n,b.n,c.n) ORDER BY a.n,b.n,c.n SEPARATOR ' ') FROM digits a,digits b,digits c;
+INSERT INTO docs VALUES(11,CONCAT(REPEAT('database alpha beta ',5000),'word999')), (12,'database');
+CREATE TABLE parts(id BIGINT PRIMARY KEY,body LONGTEXT) PARTITION BY HASH(id) PARTITIONS 4;
+INSERT INTO parts SELECT * FROM docs;
+CREATE TABLE composite(k VARCHAR(32),id INT,body LONGTEXT,PRIMARY KEY(k,id));
+INSERT INTO composite SELECT CONCAT('doc',id),MOD(id,1000),body FROM docs;
+CREATE TABLE docs_ik(id BIGINT PRIMARY KEY,body LONGTEXT);
+INSERT INTO docs_ik SELECT * FROM docs;
+CREATE TABLE docs_space(id BIGINT PRIMARY KEY,body LONGTEXT);
+INSERT INTO docs_space SELECT * FROM docs;
+CREATE TABLE docs_ngram(id BIGINT PRIMARY KEY,body LONGTEXT);
+INSERT INTO docs_ngram SELECT * FROM docs;
+CREATE TABLE docs_ngram2(id BIGINT PRIMARY KEY,body LONGTEXT);
+INSERT INTO docs_ngram2 SELECT * FROM docs;
+ALTER TABLE docs ADD FULLTEXT INDEX ft(body) WITH PARSER beng;
+SELECT COUNT(*) FROM docs WHERE MATCH(body) AGAINST('word000 word255 word256 word511 word512 word999');
+COUNT(*)
+2
+SELECT id,ROUND(MATCH(body) AGAINST('word000 word255 word256 word511 word512 word999'),8) AS score FROM docs WHERE MATCH(body) AGAINST('word000 word255 word256 word511 word512 word999') ORDER BY id;
+id	score
+10	11.90488776
+11	0.27195995
+SELECT COUNT(*) FROM docs WHERE MATCH(body) AGAINST('database alpha 中文');
+COUNT(*)
+5
+SELECT id,ROUND(MATCH(body) AGAINST('database alpha 中文'),8) AS score FROM docs WHERE MATCH(body) AGAINST('database alpha 中文') ORDER BY id;
+id	score
+-9223372036854775808	2.52226557
+2	0.42225551
+11	2.96227426
+12	0.42291239
+9223372036854775807	0.42258369
+SELECT COUNT(*) FROM docs WHERE MATCH(body) AGAINST('the and of');
+COUNT(*)
+1
+SELECT id,ROUND(MATCH(body) AGAINST('the and of'),8) AS score FROM docs WHERE MATCH(body) AGAINST('the and of') ORDER BY id;
+id	score
+1	2.93433708
+SELECT COUNT(*) FROM docs WHERE MATCH(body) AGAINST('missingzxqv');
+COUNT(*)
+0
+SELECT id,ROUND(MATCH(body) AGAINST('missingzxqv'),8) AS score FROM docs WHERE MATCH(body) AGAINST('missingzxqv') ORDER BY id;
+id	score
+ALTER TABLE parts ADD FULLTEXT INDEX ft(body) WITH PARSER beng;
+SELECT COUNT(*) FROM parts WHERE MATCH(body) AGAINST('word000 word255 word256 word511 word512 word999');
+COUNT(*)
+2
+SELECT id,ROUND(MATCH(body) AGAINST('word000 word255 word256 word511 word512 word999'),8) AS score FROM parts WHERE MATCH(body) AGAINST('word000 word255 word256 word511 word512 word999') ORDER BY id;
+id	score
+10	1.06760019
+11	0.17746742
+SELECT COUNT(*) FROM parts WHERE MATCH(body) AGAINST('database alpha 中文');
+COUNT(*)
+5
+SELECT id,ROUND(MATCH(body) AGAINST('database alpha 中文'),8) AS score FROM parts WHERE MATCH(body) AGAINST('database alpha 中文') ORDER BY id;
+id	score
+-9223372036854775808	0.90108198
+2	0.42018244
+11	1.09953838
+12	0.39568345
+9223372036854775807	0.42295986
+SELECT COUNT(*) FROM parts WHERE MATCH(body) AGAINST('the and of');
+COUNT(*)
+1
+SELECT id,ROUND(MATCH(body) AGAINST('the and of'),8) AS score FROM parts WHERE MATCH(body) AGAINST('the and of') ORDER BY id;
+id	score
+1	0.39568345
+SELECT COUNT(*) FROM parts WHERE MATCH(body) AGAINST('missingzxqv');
+COUNT(*)
+0
+SELECT id,ROUND(MATCH(body) AGAINST('missingzxqv'),8) AS score FROM parts WHERE MATCH(body) AGAINST('missingzxqv') ORDER BY id;
+id	score
+ALTER TABLE composite ADD FULLTEXT INDEX ft(body) WITH PARSER beng;
+SELECT COUNT(*) FROM composite WHERE MATCH(body) AGAINST('word000 word255 word256 word511 word512 word999');
+COUNT(*)
+2
+SELECT id,ROUND(MATCH(body) AGAINST('word000 word255 word256 word511 word512 word999'),8) AS score FROM composite WHERE MATCH(body) AGAINST('word000 word255 word256 word511 word512 word999') ORDER BY id;
+id	score
+10	11.90488776
+11	0.27195995
+SELECT COUNT(*) FROM composite WHERE MATCH(body) AGAINST('database alpha 中文');
+COUNT(*)
+5
+SELECT id,ROUND(MATCH(body) AGAINST('database alpha 中文'),8) AS score FROM composite WHERE MATCH(body) AGAINST('database alpha 中文') ORDER BY id;
+id	score
+-808	2.52226557
+2	0.42225551
+11	2.96227426
+12	0.42291239
+807	0.42258369
+SELECT COUNT(*) FROM composite WHERE MATCH(body) AGAINST('the and of');
+COUNT(*)
+1
+SELECT id,ROUND(MATCH(body) AGAINST('the and of'),8) AS score FROM composite WHERE MATCH(body) AGAINST('the and of') ORDER BY id;
+id	score
+1	2.93433708
+SELECT COUNT(*) FROM composite WHERE MATCH(body) AGAINST('missingzxqv');
+COUNT(*)
+0
+SELECT id,ROUND(MATCH(body) AGAINST('missingzxqv'),8) AS score FROM composite WHERE MATCH(body) AGAINST('missingzxqv') ORDER BY id;
+id	score
+ALTER TABLE docs_ik ADD FULLTEXT INDEX ft(body) WITH PARSER ik;
+SELECT COUNT(*) FROM docs_ik WHERE MATCH(body) AGAINST('word000 word255 word256 word511 word512 word999');
+COUNT(*)
+2
+SELECT id,ROUND(MATCH(body) AGAINST('word000 word255 word256 word511 word512 word999'),8) AS score FROM docs_ik WHERE MATCH(body) AGAINST('word000 word255 word256 word511 word512 word999') ORDER BY id;
+id	score
+10	11.90592856
+11	0.27203243
+SELECT COUNT(*) FROM docs_ik WHERE MATCH(body) AGAINST('database alpha 中文');
+COUNT(*)
+5
+SELECT id,ROUND(MATCH(body) AGAINST('database alpha 中文'),8) AS score FROM docs_ik WHERE MATCH(body) AGAINST('database alpha 中文') ORDER BY id;
+id	score
+-9223372036854775808	3.56721277
+2	1.46725771
+11	2.96227566
+12	0.42291244
+9223372036854775807	1.46839728
+SELECT COUNT(*) FROM docs_ik WHERE MATCH(body) AGAINST('the and of');
+COUNT(*)
+1
+SELECT id,ROUND(MATCH(body) AGAINST('the and of'),8) AS score FROM docs_ik WHERE MATCH(body) AGAINST('the and of') ORDER BY id;
+id	score
+1	8.79617266
+SELECT COUNT(*) FROM docs_ik WHERE MATCH(body) AGAINST('missingzxqv');
+COUNT(*)
+0
+SELECT id,ROUND(MATCH(body) AGAINST('missingzxqv'),8) AS score FROM docs_ik WHERE MATCH(body) AGAINST('missingzxqv') ORDER BY id;
+id	score
+ALTER TABLE docs_space ADD FULLTEXT INDEX ft(body) WITH PARSER space;
+SELECT COUNT(*) FROM docs_space WHERE MATCH(body) AGAINST('word000 word255 word256 word511 word512 word999');
+COUNT(*)
+2
+SELECT id,ROUND(MATCH(body) AGAINST('word000 word255 word256 word511 word512 word999'),8) AS score FROM docs_space WHERE MATCH(body) AGAINST('word000 word255 word256 word511 word512 word999') ORDER BY id;
+id	score
+10	11.90488776
+11	0.27195995
+SELECT COUNT(*) FROM docs_space WHERE MATCH(body) AGAINST('database alpha 中文');
+COUNT(*)
+5
+SELECT id,ROUND(MATCH(body) AGAINST('database alpha 中文'),8) AS score FROM docs_space WHERE MATCH(body) AGAINST('database alpha 中文') ORDER BY id;
+id	score
+-9223372036854775808	2.52226557
+2	0.42225551
+11	2.96227426
+12	0.42291239
+9223372036854775807	0.42258369
+SELECT COUNT(*) FROM docs_space WHERE MATCH(body) AGAINST('the and of');
+COUNT(*)
+1
+SELECT id,ROUND(MATCH(body) AGAINST('the and of'),8) AS score FROM docs_space WHERE MATCH(body) AGAINST('the and of') ORDER BY id;
+id	score
+1	2.93433708
+SELECT COUNT(*) FROM docs_space WHERE MATCH(body) AGAINST('missingzxqv');
+COUNT(*)
+0
+SELECT id,ROUND(MATCH(body) AGAINST('missingzxqv'),8) AS score FROM docs_space WHERE MATCH(body) AGAINST('missingzxqv') ORDER BY id;
+id	score
+ALTER TABLE docs_ngram ADD FULLTEXT INDEX ft(body) WITH PARSER ngram;
+SELECT COUNT(*) FROM docs_ngram WHERE MATCH(body) AGAINST('word000 word255 word256 word511 word512 word999');
+COUNT(*)
+2
+SELECT id,ROUND(MATCH(body) AGAINST('word000 word255 word256 word511 word512 word999'),8) AS score FROM docs_ngram WHERE MATCH(body) AGAINST('word000 word255 word256 word511 word512 word999') ORDER BY id;
+id	score
+10	48.80405290
+11	1.59994750
+SELECT COUNT(*) FROM docs_ngram WHERE MATCH(body) AGAINST('database alpha 中文');
+COUNT(*)
+5
+SELECT id,ROUND(MATCH(body) AGAINST('database alpha 中文'),8) AS score FROM docs_ngram WHERE MATCH(body) AGAINST('database alpha 中文') ORDER BY id;
+id	score
+-9223372036854775808	12.40301396
+2	4.09157619
+11	13.49728242
+12	2.95984146
+9223372036854775807	4.00389617
+SELECT COUNT(*) FROM docs_ngram WHERE MATCH(body) AGAINST('the and of');
+COUNT(*)
+1
+SELECT id,ROUND(MATCH(body) AGAINST('the and of'),8) AS score FROM docs_ngram WHERE MATCH(body) AGAINST('the and of') ORDER BY id;
+id	score
+1	14.67138516
+SELECT COUNT(*) FROM docs_ngram WHERE MATCH(body) AGAINST('missingzxqv');
+COUNT(*)
+0
+SELECT id,ROUND(MATCH(body) AGAINST('missingzxqv'),8) AS score FROM docs_ngram WHERE MATCH(body) AGAINST('missingzxqv') ORDER BY id;
+id	score
+ALTER TABLE docs_ngram2 ADD FULLTEXT INDEX ft(body) WITH PARSER ngram2;
+SELECT COUNT(*) FROM docs_ngram2 WHERE MATCH(body) AGAINST('word000 word255 word256 word511 word512 word999');
+COUNT(*)
+2
+SELECT id,ROUND(MATCH(body) AGAINST('word000 word255 word256 word511 word512 word999'),8) AS score FROM docs_ngram2 WHERE MATCH(body) AGAINST('word000 word255 word256 word511 word512 word999') ORDER BY id;
+id	score
+10	91.00045400
+11	2.98562300
+SELECT COUNT(*) FROM docs_ngram2 WHERE MATCH(body) AGAINST('database alpha 中文');
+COUNT(*)
+5
+SELECT id,ROUND(MATCH(body) AGAINST('database alpha 中文'),8) AS score FROM docs_ngram2 WHERE MATCH(body) AGAINST('database alpha 中文') ORDER BY id;
+id	score
+-9223372036854775808	21.23771066
+2	6.62611226
+11	24.03186013
+12	5.49672927
+9223372036854775807	6.53892517
+SELECT COUNT(*) FROM docs_ngram2 WHERE MATCH(body) AGAINST('the and of');
+COUNT(*)
+1
+SELECT id,ROUND(MATCH(body) AGAINST('the and of'),8) AS score FROM docs_ngram2 WHERE MATCH(body) AGAINST('the and of') ORDER BY id;
+id	score
+1	20.54176934
+SELECT COUNT(*) FROM docs_ngram2 WHERE MATCH(body) AGAINST('missingzxqv');
+COUNT(*)
+0
+SELECT id,ROUND(MATCH(body) AGAINST('missingzxqv'),8) AS score FROM docs_ngram2 WHERE MATCH(body) AGAINST('missingzxqv') ORDER BY id;
+id	score
+INSERT INTO docs VALUES(13,'database word000');
+UPDATE docs SET body='word999 database beta' WHERE id=2;
+DELETE FROM docs WHERE id=10;
+SELECT id,ROUND(MATCH(body) AGAINST('word000 word999 database'),8) AS score FROM docs WHERE MATCH(body) AGAINST('word000 word999 database') ORDER BY id;
+id	score
+-9223372036854775808	0.42241954
+2	2.27960625
+11	0.82109373
+12	0.42291239
+13	3.35594432
+9223372036854775807	0.42258369
+ALTER TABLE docs DROP INDEX ft;
+ALTER TABLE docs ADD FULLTEXT INDEX ft(body) WITH PARSER beng;
+SELECT id,ROUND(MATCH(body) AGAINST('word000 word999 database'),8) AS score FROM docs WHERE MATCH(body) AGAINST('word000 word999 database') ORDER BY id;
+id	score
+-9223372036854775808	0.42237583
+2	2.27942927
+11	0.80640715
+12	0.42290143
+13	3.35577055
+9223372036854775807	0.42255089
+CREATE TABLE empty_docs(id INT PRIMARY KEY,body TEXT);
+ALTER TABLE empty_docs ADD FULLTEXT INDEX ft(body) WITH PARSER beng;
+SELECT COUNT(*) FROM empty_docs WHERE MATCH(body) AGAINST('database');
+COUNT(*)
+0
+CREATE TABLE stop_docs(id INT PRIMARY KEY,body TEXT);
+INSERT INTO stop_docs VALUES(1,NULL),(2,''),(3,'the and of');
+ALTER TABLE stop_docs ADD FULLTEXT INDEX ft(body) WITH PARSER beng;
+SELECT COUNT(*) FROM stop_docs WHERE MATCH(body) AGAINST('the database');
+COUNT(*)
+0
+DROP DATABASE fts_post_build_batches;

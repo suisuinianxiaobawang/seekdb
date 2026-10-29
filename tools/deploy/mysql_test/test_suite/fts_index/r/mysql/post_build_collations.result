@@ -1,0 +1,786 @@
+SET NAMES utf8mb4;
+SET ob_query_timeout=100000000;
+DROP DATABASE IF EXISTS fts_build_collations;
+CREATE DATABASE fts_build_collations;
+USE fts_build_collations;
+CREATE TABLE docs_utf8mb4_bin_beng(id VARCHAR(30) PRIMARY KEY,body TEXT) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin;
+INSERT INTO docs_utf8mb4_bin_beng VALUES('pk01','ALPHA alpha café CAFÉ 数据库全文索引'),('pk02','Alpha alpha cafe abc 北京 南京市长江大桥'),('pk03','a alpha 123 abc 中文分词'),('pk04','the AND a'),('pk05',''),('pk06',NULL);
+ALTER TABLE docs_utf8mb4_bin_beng ADD FULLTEXT INDEX ft(body) WITH PARSER beng;
+SELECT COUNT(*) FROM docs_utf8mb4_bin_beng WHERE MATCH(body) AGAINST('alpha');
+COUNT(*)
+3
+SELECT id,ROUND(MATCH(body) AGAINST('alpha'),8) AS score FROM docs_utf8mb4_bin_beng WHERE MATCH(body) AGAINST('alpha') ORDER BY id;
+id	score
+pk01	0.40000000
+pk02	0.38732394
+pk03	0.33132530
+SELECT COUNT(*) FROM docs_utf8mb4_bin_beng WHERE MATCH(body) AGAINST('cafe café');
+COUNT(*)
+2
+SELECT id,ROUND(MATCH(body) AGAINST('cafe café'),8) AS score FROM docs_utf8mb4_bin_beng WHERE MATCH(body) AGAINST('cafe café') ORDER BY id;
+id	score
+pk01	2.07885277
+pk02	1.55349052
+SELECT COUNT(*) FROM docs_utf8mb4_bin_beng WHERE MATCH(body) AGAINST('数据库 南京');
+COUNT(*)
+0
+SELECT id,ROUND(MATCH(body) AGAINST('数据库 南京'),8) AS score FROM docs_utf8mb4_bin_beng WHERE MATCH(body) AGAINST('数据库 南京') ORDER BY id;
+id	score
+SELECT COUNT(*) FROM docs_utf8mb4_bin_beng WHERE MATCH(body) AGAINST('中文 abc');
+COUNT(*)
+2
+SELECT id,ROUND(MATCH(body) AGAINST('中文 abc'),8) AS score FROM docs_utf8mb4_bin_beng WHERE MATCH(body) AGAINST('中文 abc') ORDER BY id;
+id	score
+pk02	0.70278840
+pk03	0.77899438
+SELECT COUNT(*) FROM docs_utf8mb4_bin_beng WHERE MATCH(body) AGAINST('missingzxqv');
+COUNT(*)
+0
+SELECT id,ROUND(MATCH(body) AGAINST('missingzxqv'),8) AS score FROM docs_utf8mb4_bin_beng WHERE MATCH(body) AGAINST('missingzxqv') ORDER BY id;
+id	score
+UPDATE docs_utf8mb4_bin_beng SET body='alpha alpha 中文 数据库' WHERE id='pk01';
+INSERT INTO docs_utf8mb4_bin_beng VALUES('pk07','ALPHA cafe 中文');
+DELETE FROM docs_utf8mb4_bin_beng WHERE id='pk03';
+SELECT id,ROUND(MATCH(body) AGAINST('alpha cafe 中文 数据库'),8) AS score FROM docs_utf8mb4_bin_beng WHERE MATCH(body) AGAINST('alpha cafe 中文 数据库') ORDER BY id;
+id	score
+pk01	2.91446951
+pk02	1.09011235
+pk07	1.99761868
+ALTER TABLE docs_utf8mb4_bin_beng DROP INDEX ft;
+ALTER TABLE docs_utf8mb4_bin_beng ADD FULLTEXT INDEX ft(body) WITH PARSER beng;
+SELECT id,ROUND(MATCH(body) AGAINST('alpha cafe 中文 数据库'),8) AS score FROM docs_utf8mb4_bin_beng WHERE MATCH(body) AGAINST('alpha cafe 中文 数据库') ORDER BY id;
+id	score
+pk01	2.91446951
+pk02	1.09011235
+pk07	1.99761868
+DROP TABLE docs_utf8mb4_bin_beng;
+CREATE TABLE docs_utf8mb4_bin_ik(id VARCHAR(30) PRIMARY KEY,body TEXT) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin;
+INSERT INTO docs_utf8mb4_bin_ik VALUES('pk01','ALPHA alpha café CAFÉ 数据库全文索引'),('pk02','Alpha alpha cafe abc 北京 南京市长江大桥'),('pk03','a alpha 123 abc 中文分词'),('pk04','the AND a'),('pk05',''),('pk06',NULL);
+ALTER TABLE docs_utf8mb4_bin_ik ADD FULLTEXT INDEX ft(body) WITH PARSER ik;
+SELECT COUNT(*) FROM docs_utf8mb4_bin_ik WHERE MATCH(body) AGAINST('alpha');
+COUNT(*)
+3
+SELECT id,ROUND(MATCH(body) AGAINST('alpha'),8) AS score FROM docs_utf8mb4_bin_ik WHERE MATCH(body) AGAINST('alpha') ORDER BY id;
+id	score
+pk01	0.38732394
+pk02	0.37542662
+pk03	0.29891304
+SELECT COUNT(*) FROM docs_utf8mb4_bin_ik WHERE MATCH(body) AGAINST('cafe café');
+COUNT(*)
+2
+SELECT id,ROUND(MATCH(body) AGAINST('cafe café'),8) AS score FROM docs_utf8mb4_bin_ik WHERE MATCH(body) AGAINST('cafe café') ORDER BY id;
+id	score
+pk01	2.01297364
+pk02	1.48104796
+SELECT COUNT(*) FROM docs_utf8mb4_bin_ik WHERE MATCH(body) AGAINST('数据库 南京');
+COUNT(*)
+1
+SELECT id,ROUND(MATCH(body) AGAINST('数据库 南京'),8) AS score FROM docs_utf8mb4_bin_ik WHERE MATCH(body) AGAINST('数据库 南京') ORDER BY id;
+id	score
+pk01	1.55349052
+SELECT COUNT(*) FROM docs_utf8mb4_bin_ik WHERE MATCH(body) AGAINST('中文 abc');
+COUNT(*)
+2
+SELECT id,ROUND(MATCH(body) AGAINST('中文 abc'),8) AS score FROM docs_utf8mb4_bin_ik WHERE MATCH(body) AGAINST('中文 abc') ORDER BY id;
+id	score
+pk02	0.67001589
+pk03	2.25627893
+SELECT COUNT(*) FROM docs_utf8mb4_bin_ik WHERE MATCH(body) AGAINST('missingzxqv');
+COUNT(*)
+0
+SELECT id,ROUND(MATCH(body) AGAINST('missingzxqv'),8) AS score FROM docs_utf8mb4_bin_ik WHERE MATCH(body) AGAINST('missingzxqv') ORDER BY id;
+id	score
+UPDATE docs_utf8mb4_bin_ik SET body='alpha alpha 中文 数据库' WHERE id='pk01';
+INSERT INTO docs_utf8mb4_bin_ik VALUES('pk07','ALPHA cafe 中文');
+DELETE FROM docs_utf8mb4_bin_ik WHERE id='pk03';
+SELECT id,ROUND(MATCH(body) AGAINST('alpha cafe 中文 数据库'),8) AS score FROM docs_utf8mb4_bin_ik WHERE MATCH(body) AGAINST('alpha cafe 中文 数据库') ORDER BY id;
+id	score
+pk01	2.91446951
+pk02	1.04544251
+pk07	1.99761868
+ALTER TABLE docs_utf8mb4_bin_ik DROP INDEX ft;
+ALTER TABLE docs_utf8mb4_bin_ik ADD FULLTEXT INDEX ft(body) WITH PARSER ik;
+SELECT id,ROUND(MATCH(body) AGAINST('alpha cafe 中文 数据库'),8) AS score FROM docs_utf8mb4_bin_ik WHERE MATCH(body) AGAINST('alpha cafe 中文 数据库') ORDER BY id;
+id	score
+pk01	2.91446951
+pk02	1.04544251
+pk07	1.99761868
+DROP TABLE docs_utf8mb4_bin_ik;
+CREATE TABLE docs_utf8mb4_bin_space(id VARCHAR(30) PRIMARY KEY,body TEXT) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin;
+INSERT INTO docs_utf8mb4_bin_space VALUES('pk01','ALPHA alpha café CAFÉ 数据库全文索引'),('pk02','Alpha alpha cafe abc 北京 南京市长江大桥'),('pk03','a alpha 123 abc 中文分词'),('pk04','the AND a'),('pk05',''),('pk06',NULL);
+ALTER TABLE docs_utf8mb4_bin_space ADD FULLTEXT INDEX ft(body) WITH PARSER space;
+SELECT COUNT(*) FROM docs_utf8mb4_bin_space WHERE MATCH(body) AGAINST('alpha');
+COUNT(*)
+3
+SELECT id,ROUND(MATCH(body) AGAINST('alpha'),8) AS score FROM docs_utf8mb4_bin_space WHERE MATCH(body) AGAINST('alpha') ORDER BY id;
+id	score
+pk01	0.40000000
+pk02	0.40000000
+pk03	0.33132530
+SELECT COUNT(*) FROM docs_utf8mb4_bin_space WHERE MATCH(body) AGAINST('cafe café');
+COUNT(*)
+2
+SELECT id,ROUND(MATCH(body) AGAINST('cafe café'),8) AS score FROM docs_utf8mb4_bin_space WHERE MATCH(body) AGAINST('cafe café') ORDER BY id;
+id	score
+pk01	2.07885277
+pk02	1.63338432
+SELECT COUNT(*) FROM docs_utf8mb4_bin_space WHERE MATCH(body) AGAINST('数据库 南京');
+COUNT(*)
+0
+SELECT id,ROUND(MATCH(body) AGAINST('数据库 南京'),8) AS score FROM docs_utf8mb4_bin_space WHERE MATCH(body) AGAINST('数据库 南京') ORDER BY id;
+id	score
+SELECT COUNT(*) FROM docs_utf8mb4_bin_space WHERE MATCH(body) AGAINST('中文 abc');
+COUNT(*)
+2
+SELECT id,ROUND(MATCH(body) AGAINST('中文 abc'),8) AS score FROM docs_utf8mb4_bin_space WHERE MATCH(body) AGAINST('中文 abc') ORDER BY id;
+id	score
+pk02	0.73893181
+pk03	0.77899438
+SELECT COUNT(*) FROM docs_utf8mb4_bin_space WHERE MATCH(body) AGAINST('missingzxqv');
+COUNT(*)
+0
+SELECT id,ROUND(MATCH(body) AGAINST('missingzxqv'),8) AS score FROM docs_utf8mb4_bin_space WHERE MATCH(body) AGAINST('missingzxqv') ORDER BY id;
+id	score
+UPDATE docs_utf8mb4_bin_space SET body='alpha alpha 中文 数据库' WHERE id='pk01';
+INSERT INTO docs_utf8mb4_bin_space VALUES('pk07','ALPHA cafe 中文');
+DELETE FROM docs_utf8mb4_bin_space WHERE id='pk03';
+SELECT id,ROUND(MATCH(body) AGAINST('alpha cafe 中文 数据库'),8) AS score FROM docs_utf8mb4_bin_space WHERE MATCH(body) AGAINST('alpha cafe 中文 数据库') ORDER BY id;
+id	score
+pk01	2.24866688
+pk02	1.13893181
+pk07	1.24535856
+ALTER TABLE docs_utf8mb4_bin_space DROP INDEX ft;
+ALTER TABLE docs_utf8mb4_bin_space ADD FULLTEXT INDEX ft(body) WITH PARSER space;
+SELECT id,ROUND(MATCH(body) AGAINST('alpha cafe 中文 数据库'),8) AS score FROM docs_utf8mb4_bin_space WHERE MATCH(body) AGAINST('alpha cafe 中文 数据库') ORDER BY id;
+id	score
+pk01	2.24866688
+pk02	1.13893181
+pk07	1.24535856
+DROP TABLE docs_utf8mb4_bin_space;
+CREATE TABLE docs_utf8mb4_bin_ngram(id VARCHAR(30) PRIMARY KEY,body TEXT) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin;
+INSERT INTO docs_utf8mb4_bin_ngram VALUES('pk01','ALPHA alpha café CAFÉ 数据库全文索引'),('pk02','Alpha alpha cafe abc 北京 南京市长江大桥'),('pk03','a alpha 123 abc 中文分词'),('pk04','the AND a'),('pk05',''),('pk06',NULL);
+ALTER TABLE docs_utf8mb4_bin_ngram ADD FULLTEXT INDEX ft(body) WITH PARSER ngram;
+SELECT COUNT(*) FROM docs_utf8mb4_bin_ngram WHERE MATCH(body) AGAINST('alpha');
+COUNT(*)
+3
+SELECT id,ROUND(MATCH(body) AGAINST('alpha'),8) AS score FROM docs_utf8mb4_bin_ngram WHERE MATCH(body) AGAINST('alpha') ORDER BY id;
+id	score
+pk01	1.07317073
+pk02	1.07317073
+pk03	0.96069869
+SELECT COUNT(*) FROM docs_utf8mb4_bin_ngram WHERE MATCH(body) AGAINST('cafe café');
+COUNT(*)
+2
+SELECT id,ROUND(MATCH(body) AGAINST('cafe café'),8) AS score FROM docs_utf8mb4_bin_ngram WHERE MATCH(body) AGAINST('cafe café') ORDER BY id;
+id	score
+pk01	2.65594336
+pk02	1.75634964
+SELECT COUNT(*) FROM docs_utf8mb4_bin_ngram WHERE MATCH(body) AGAINST('数据库 南京');
+COUNT(*)
+2
+SELECT id,ROUND(MATCH(body) AGAINST('数据库 南京'),8) AS score FROM docs_utf8mb4_bin_ngram WHERE MATCH(body) AGAINST('数据库 南京') ORDER BY id;
+id	score
+pk01	1.84414359
+pk02	0.92207180
+SELECT COUNT(*) FROM docs_utf8mb4_bin_ngram WHERE MATCH(body) AGAINST('中文 abc');
+COUNT(*)
+2
+SELECT id,ROUND(MATCH(body) AGAINST('中文 abc'),8) AS score FROM docs_utf8mb4_bin_ngram WHERE MATCH(body) AGAINST('中文 abc') ORDER BY id;
+id	score
+pk02	0.83427785
+pk03	2.37759122
+SELECT COUNT(*) FROM docs_utf8mb4_bin_ngram WHERE MATCH(body) AGAINST('missingzxqv');
+COUNT(*)
+0
+SELECT id,ROUND(MATCH(body) AGAINST('missingzxqv'),8) AS score FROM docs_utf8mb4_bin_ngram WHERE MATCH(body) AGAINST('missingzxqv') ORDER BY id;
+id	score
+UPDATE docs_utf8mb4_bin_ngram SET body='alpha alpha 中文 数据库' WHERE id='pk01';
+INSERT INTO docs_utf8mb4_bin_ngram VALUES('pk07','ALPHA cafe 中文');
+DELETE FROM docs_utf8mb4_bin_ngram WHERE id='pk03';
+SELECT id,ROUND(MATCH(body) AGAINST('alpha cafe 中文 数据库'),8) AS score FROM docs_utf8mb4_bin_ngram WHERE MATCH(body) AGAINST('alpha cafe 中文 数据库') ORDER BY id;
+id	score
+pk01	4.39851082
+pk02	2.32458750
+pk07	3.64976369
+ALTER TABLE docs_utf8mb4_bin_ngram DROP INDEX ft;
+ALTER TABLE docs_utf8mb4_bin_ngram ADD FULLTEXT INDEX ft(body) WITH PARSER ngram;
+SELECT id,ROUND(MATCH(body) AGAINST('alpha cafe 中文 数据库'),8) AS score FROM docs_utf8mb4_bin_ngram WHERE MATCH(body) AGAINST('alpha cafe 中文 数据库') ORDER BY id;
+id	score
+pk01	4.39851082
+pk02	2.32458750
+pk07	3.64976369
+DROP TABLE docs_utf8mb4_bin_ngram;
+CREATE TABLE docs_utf8mb4_bin_ngram2(id VARCHAR(30) PRIMARY KEY,body TEXT) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin;
+INSERT INTO docs_utf8mb4_bin_ngram2 VALUES('pk01','ALPHA alpha café CAFÉ 数据库全文索引'),('pk02','Alpha alpha cafe abc 北京 南京市长江大桥'),('pk03','a alpha 123 abc 中文分词'),('pk04','the AND a'),('pk05',''),('pk06',NULL);
+ALTER TABLE docs_utf8mb4_bin_ngram2 ADD FULLTEXT INDEX ft(body) WITH PARSER ngram2;
+SELECT COUNT(*) FROM docs_utf8mb4_bin_ngram2 WHERE MATCH(body) AGAINST('alpha');
+COUNT(*)
+3
+SELECT id,ROUND(MATCH(body) AGAINST('alpha'),8) AS score FROM docs_utf8mb4_bin_ngram2 WHERE MATCH(body) AGAINST('alpha') ORDER BY id;
+id	score
+pk01	1.77736411
+pk02	1.80150943
+pk03	1.64167813
+SELECT COUNT(*) FROM docs_utf8mb4_bin_ngram2 WHERE MATCH(body) AGAINST('cafe café');
+COUNT(*)
+2
+SELECT id,ROUND(MATCH(body) AGAINST('cafe café'),8) AS score FROM docs_utf8mb4_bin_ngram2 WHERE MATCH(body) AGAINST('cafe café') ORDER BY id;
+id	score
+pk01	4.43013180
+pk02	2.93087045
+SELECT COUNT(*) FROM docs_utf8mb4_bin_ngram2 WHERE MATCH(body) AGAINST('数据库 南京');
+COUNT(*)
+2
+SELECT id,ROUND(MATCH(body) AGAINST('数据库 南京'),8) AS score FROM docs_utf8mb4_bin_ngram2 WHERE MATCH(body) AGAINST('数据库 南京') ORDER BY id;
+id	score
+pk01	2.57341044
+pk02	0.87301576
+SELECT COUNT(*) FROM docs_utf8mb4_bin_ngram2 WHERE MATCH(body) AGAINST('中文 abc');
+COUNT(*)
+2
+SELECT id,ROUND(MATCH(body) AGAINST('中文 abc'),8) AS score FROM docs_utf8mb4_bin_ngram2 WHERE MATCH(body) AGAINST('中文 abc') ORDER BY id;
+id	score
+pk02	1.18483893
+pk03	2.87307085
+SELECT COUNT(*) FROM docs_utf8mb4_bin_ngram2 WHERE MATCH(body) AGAINST('missingzxqv');
+COUNT(*)
+0
+SELECT id,ROUND(MATCH(body) AGAINST('missingzxqv'),8) AS score FROM docs_utf8mb4_bin_ngram2 WHERE MATCH(body) AGAINST('missingzxqv') ORDER BY id;
+id	score
+UPDATE docs_utf8mb4_bin_ngram2 SET body='alpha alpha 中文 数据库' WHERE id='pk01';
+INSERT INTO docs_utf8mb4_bin_ngram2 VALUES('pk07','ALPHA cafe 中文');
+DELETE FROM docs_utf8mb4_bin_ngram2 WHERE id='pk03';
+SELECT id,ROUND(MATCH(body) AGAINST('alpha cafe 中文 数据库'),8) AS score FROM docs_utf8mb4_bin_ngram2 WHERE MATCH(body) AGAINST('alpha cafe 中文 数据库') ORDER BY id;
+id	score
+pk01	6.50981500
+pk02	3.77624099
+pk07	5.64948671
+ALTER TABLE docs_utf8mb4_bin_ngram2 DROP INDEX ft;
+ALTER TABLE docs_utf8mb4_bin_ngram2 ADD FULLTEXT INDEX ft(body) WITH PARSER ngram2;
+SELECT id,ROUND(MATCH(body) AGAINST('alpha cafe 中文 数据库'),8) AS score FROM docs_utf8mb4_bin_ngram2 WHERE MATCH(body) AGAINST('alpha cafe 中文 数据库') ORDER BY id;
+id	score
+pk01	5.79605107
+pk02	3.23982723
+pk07	5.07214561
+DROP TABLE docs_utf8mb4_bin_ngram2;
+CREATE TABLE docs_utf8mb4_general_ci_beng(id VARCHAR(30) PRIMARY KEY,body TEXT) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci;
+INSERT INTO docs_utf8mb4_general_ci_beng VALUES('pk01','ALPHA alpha café CAFÉ 数据库全文索引'),('pk02','Alpha alpha cafe abc 北京 南京市长江大桥'),('pk03','a alpha 123 abc 中文分词'),('pk04','the AND a'),('pk05',''),('pk06',NULL);
+ALTER TABLE docs_utf8mb4_general_ci_beng ADD FULLTEXT INDEX ft(body) WITH PARSER beng;
+SELECT COUNT(*) FROM docs_utf8mb4_general_ci_beng WHERE MATCH(body) AGAINST('alpha');
+COUNT(*)
+3
+SELECT id,ROUND(MATCH(body) AGAINST('alpha'),8) AS score FROM docs_utf8mb4_general_ci_beng WHERE MATCH(body) AGAINST('alpha') ORDER BY id;
+id	score
+pk01	0.40000000
+pk02	0.38732394
+pk03	0.33132530
+SELECT COUNT(*) FROM docs_utf8mb4_general_ci_beng WHERE MATCH(body) AGAINST('cafe café');
+COUNT(*)
+2
+SELECT id,ROUND(MATCH(body) AGAINST('cafe café'),8) AS score FROM docs_utf8mb4_general_ci_beng WHERE MATCH(body) AGAINST('cafe café') ORDER BY id;
+id	score
+pk01	0.94045866
+pk02	0.70278840
+SELECT COUNT(*) FROM docs_utf8mb4_general_ci_beng WHERE MATCH(body) AGAINST('数据库 南京');
+COUNT(*)
+0
+SELECT id,ROUND(MATCH(body) AGAINST('数据库 南京'),8) AS score FROM docs_utf8mb4_general_ci_beng WHERE MATCH(body) AGAINST('数据库 南京') ORDER BY id;
+id	score
+SELECT COUNT(*) FROM docs_utf8mb4_general_ci_beng WHERE MATCH(body) AGAINST('中文 abc');
+COUNT(*)
+2
+SELECT id,ROUND(MATCH(body) AGAINST('中文 abc'),8) AS score FROM docs_utf8mb4_general_ci_beng WHERE MATCH(body) AGAINST('中文 abc') ORDER BY id;
+id	score
+pk02	0.70278840
+pk03	0.77899438
+SELECT COUNT(*) FROM docs_utf8mb4_general_ci_beng WHERE MATCH(body) AGAINST('missingzxqv');
+COUNT(*)
+0
+SELECT id,ROUND(MATCH(body) AGAINST('missingzxqv'),8) AS score FROM docs_utf8mb4_general_ci_beng WHERE MATCH(body) AGAINST('missingzxqv') ORDER BY id;
+id	score
+UPDATE docs_utf8mb4_general_ci_beng SET body='alpha alpha 中文 数据库' WHERE id='pk01';
+INSERT INTO docs_utf8mb4_general_ci_beng VALUES('pk07','ALPHA cafe 中文');
+DELETE FROM docs_utf8mb4_general_ci_beng WHERE id='pk03';
+SELECT id,ROUND(MATCH(body) AGAINST('alpha cafe 中文 数据库'),8) AS score FROM docs_utf8mb4_general_ci_beng WHERE MATCH(body) AGAINST('alpha cafe 中文 数据库') ORDER BY id;
+id	score
+pk01	2.91446951
+pk02	1.09011235
+pk07	1.99761868
+ALTER TABLE docs_utf8mb4_general_ci_beng DROP INDEX ft;
+ALTER TABLE docs_utf8mb4_general_ci_beng ADD FULLTEXT INDEX ft(body) WITH PARSER beng;
+SELECT id,ROUND(MATCH(body) AGAINST('alpha cafe 中文 数据库'),8) AS score FROM docs_utf8mb4_general_ci_beng WHERE MATCH(body) AGAINST('alpha cafe 中文 数据库') ORDER BY id;
+id	score
+pk01	2.91446951
+pk02	1.09011235
+pk07	1.99761868
+DROP TABLE docs_utf8mb4_general_ci_beng;
+CREATE TABLE docs_utf8mb4_general_ci_ik(id VARCHAR(30) PRIMARY KEY,body TEXT) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci;
+INSERT INTO docs_utf8mb4_general_ci_ik VALUES('pk01','ALPHA alpha café CAFÉ 数据库全文索引'),('pk02','Alpha alpha cafe abc 北京 南京市长江大桥'),('pk03','a alpha 123 abc 中文分词'),('pk04','the AND a'),('pk05',''),('pk06',NULL);
+ALTER TABLE docs_utf8mb4_general_ci_ik ADD FULLTEXT INDEX ft(body) WITH PARSER ik;
+SELECT COUNT(*) FROM docs_utf8mb4_general_ci_ik WHERE MATCH(body) AGAINST('alpha');
+COUNT(*)
+3
+SELECT id,ROUND(MATCH(body) AGAINST('alpha'),8) AS score FROM docs_utf8mb4_general_ci_ik WHERE MATCH(body) AGAINST('alpha') ORDER BY id;
+id	score
+pk01	0.38732394
+pk02	0.37542662
+pk03	0.29891304
+SELECT COUNT(*) FROM docs_utf8mb4_general_ci_ik WHERE MATCH(body) AGAINST('cafe café');
+COUNT(*)
+2
+SELECT id,ROUND(MATCH(body) AGAINST('cafe café'),8) AS score FROM docs_utf8mb4_general_ci_ik WHERE MATCH(body) AGAINST('cafe café') ORDER BY id;
+id	score
+pk01	2.01297364
+pk02	1.48104796
+SELECT COUNT(*) FROM docs_utf8mb4_general_ci_ik WHERE MATCH(body) AGAINST('数据库 南京');
+COUNT(*)
+1
+SELECT id,ROUND(MATCH(body) AGAINST('数据库 南京'),8) AS score FROM docs_utf8mb4_general_ci_ik WHERE MATCH(body) AGAINST('数据库 南京') ORDER BY id;
+id	score
+pk01	1.55349052
+SELECT COUNT(*) FROM docs_utf8mb4_general_ci_ik WHERE MATCH(body) AGAINST('中文 abc');
+COUNT(*)
+2
+SELECT id,ROUND(MATCH(body) AGAINST('中文 abc'),8) AS score FROM docs_utf8mb4_general_ci_ik WHERE MATCH(body) AGAINST('中文 abc') ORDER BY id;
+id	score
+pk02	0.67001589
+pk03	2.25627893
+SELECT COUNT(*) FROM docs_utf8mb4_general_ci_ik WHERE MATCH(body) AGAINST('missingzxqv');
+COUNT(*)
+0
+SELECT id,ROUND(MATCH(body) AGAINST('missingzxqv'),8) AS score FROM docs_utf8mb4_general_ci_ik WHERE MATCH(body) AGAINST('missingzxqv') ORDER BY id;
+id	score
+UPDATE docs_utf8mb4_general_ci_ik SET body='alpha alpha 中文 数据库' WHERE id='pk01';
+INSERT INTO docs_utf8mb4_general_ci_ik VALUES('pk07','ALPHA cafe 中文');
+DELETE FROM docs_utf8mb4_general_ci_ik WHERE id='pk03';
+SELECT id,ROUND(MATCH(body) AGAINST('alpha cafe 中文 数据库'),8) AS score FROM docs_utf8mb4_general_ci_ik WHERE MATCH(body) AGAINST('alpha cafe 中文 数据库') ORDER BY id;
+id	score
+pk01	2.91446951
+pk02	1.04544251
+pk07	1.99761868
+ALTER TABLE docs_utf8mb4_general_ci_ik DROP INDEX ft;
+ALTER TABLE docs_utf8mb4_general_ci_ik ADD FULLTEXT INDEX ft(body) WITH PARSER ik;
+SELECT id,ROUND(MATCH(body) AGAINST('alpha cafe 中文 数据库'),8) AS score FROM docs_utf8mb4_general_ci_ik WHERE MATCH(body) AGAINST('alpha cafe 中文 数据库') ORDER BY id;
+id	score
+pk01	2.91446951
+pk02	1.04544251
+pk07	1.99761868
+DROP TABLE docs_utf8mb4_general_ci_ik;
+CREATE TABLE docs_utf8mb4_general_ci_space(id VARCHAR(30) PRIMARY KEY,body TEXT) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci;
+INSERT INTO docs_utf8mb4_general_ci_space VALUES('pk01','ALPHA alpha café CAFÉ 数据库全文索引'),('pk02','Alpha alpha cafe abc 北京 南京市长江大桥'),('pk03','a alpha 123 abc 中文分词'),('pk04','the AND a'),('pk05',''),('pk06',NULL);
+ALTER TABLE docs_utf8mb4_general_ci_space ADD FULLTEXT INDEX ft(body) WITH PARSER space;
+SELECT COUNT(*) FROM docs_utf8mb4_general_ci_space WHERE MATCH(body) AGAINST('alpha');
+COUNT(*)
+3
+SELECT id,ROUND(MATCH(body) AGAINST('alpha'),8) AS score FROM docs_utf8mb4_general_ci_space WHERE MATCH(body) AGAINST('alpha') ORDER BY id;
+id	score
+pk01	0.40000000
+pk02	0.40000000
+pk03	0.33132530
+SELECT COUNT(*) FROM docs_utf8mb4_general_ci_space WHERE MATCH(body) AGAINST('cafe café');
+COUNT(*)
+2
+SELECT id,ROUND(MATCH(body) AGAINST('cafe café'),8) AS score FROM docs_utf8mb4_general_ci_space WHERE MATCH(body) AGAINST('cafe café') ORDER BY id;
+id	score
+pk01	0.94045866
+pk02	0.73893181
+SELECT COUNT(*) FROM docs_utf8mb4_general_ci_space WHERE MATCH(body) AGAINST('数据库 南京');
+COUNT(*)
+0
+SELECT id,ROUND(MATCH(body) AGAINST('数据库 南京'),8) AS score FROM docs_utf8mb4_general_ci_space WHERE MATCH(body) AGAINST('数据库 南京') ORDER BY id;
+id	score
+SELECT COUNT(*) FROM docs_utf8mb4_general_ci_space WHERE MATCH(body) AGAINST('中文 abc');
+COUNT(*)
+2
+SELECT id,ROUND(MATCH(body) AGAINST('中文 abc'),8) AS score FROM docs_utf8mb4_general_ci_space WHERE MATCH(body) AGAINST('中文 abc') ORDER BY id;
+id	score
+pk02	0.73893181
+pk03	0.77899438
+SELECT COUNT(*) FROM docs_utf8mb4_general_ci_space WHERE MATCH(body) AGAINST('missingzxqv');
+COUNT(*)
+0
+SELECT id,ROUND(MATCH(body) AGAINST('missingzxqv'),8) AS score FROM docs_utf8mb4_general_ci_space WHERE MATCH(body) AGAINST('missingzxqv') ORDER BY id;
+id	score
+UPDATE docs_utf8mb4_general_ci_space SET body='alpha alpha 中文 数据库' WHERE id='pk01';
+INSERT INTO docs_utf8mb4_general_ci_space VALUES('pk07','ALPHA cafe 中文');
+DELETE FROM docs_utf8mb4_general_ci_space WHERE id='pk03';
+SELECT id,ROUND(MATCH(body) AGAINST('alpha cafe 中文 数据库'),8) AS score FROM docs_utf8mb4_general_ci_space WHERE MATCH(body) AGAINST('alpha cafe 中文 数据库') ORDER BY id;
+id	score
+pk01	2.24866688
+pk02	1.13893181
+pk07	1.24535856
+ALTER TABLE docs_utf8mb4_general_ci_space DROP INDEX ft;
+ALTER TABLE docs_utf8mb4_general_ci_space ADD FULLTEXT INDEX ft(body) WITH PARSER space;
+SELECT id,ROUND(MATCH(body) AGAINST('alpha cafe 中文 数据库'),8) AS score FROM docs_utf8mb4_general_ci_space WHERE MATCH(body) AGAINST('alpha cafe 中文 数据库') ORDER BY id;
+id	score
+pk01	2.24866688
+pk02	1.13893181
+pk07	1.24535856
+DROP TABLE docs_utf8mb4_general_ci_space;
+CREATE TABLE docs_utf8mb4_general_ci_ngram(id VARCHAR(30) PRIMARY KEY,body TEXT) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci;
+INSERT INTO docs_utf8mb4_general_ci_ngram VALUES('pk01','ALPHA alpha café CAFÉ 数据库全文索引'),('pk02','Alpha alpha cafe abc 北京 南京市长江大桥'),('pk03','a alpha 123 abc 中文分词'),('pk04','the AND a'),('pk05',''),('pk06',NULL);
+ALTER TABLE docs_utf8mb4_general_ci_ngram ADD FULLTEXT INDEX ft(body) WITH PARSER ngram;
+SELECT COUNT(*) FROM docs_utf8mb4_general_ci_ngram WHERE MATCH(body) AGAINST('alpha');
+COUNT(*)
+3
+SELECT id,ROUND(MATCH(body) AGAINST('alpha'),8) AS score FROM docs_utf8mb4_general_ci_ngram WHERE MATCH(body) AGAINST('alpha') ORDER BY id;
+id	score
+pk01	1.07317073
+pk02	1.07317073
+pk03	0.96069869
+SELECT COUNT(*) FROM docs_utf8mb4_general_ci_ngram WHERE MATCH(body) AGAINST('cafe café');
+COUNT(*)
+2
+SELECT id,ROUND(MATCH(body) AGAINST('cafe café'),8) AS score FROM docs_utf8mb4_general_ci_ngram WHERE MATCH(body) AGAINST('cafe café') ORDER BY id;
+id	score
+pk01	1.89238634
+pk02	1.25141677
+SELECT COUNT(*) FROM docs_utf8mb4_general_ci_ngram WHERE MATCH(body) AGAINST('数据库 南京');
+COUNT(*)
+2
+SELECT id,ROUND(MATCH(body) AGAINST('数据库 南京'),8) AS score FROM docs_utf8mb4_general_ci_ngram WHERE MATCH(body) AGAINST('数据库 南京') ORDER BY id;
+id	score
+pk01	1.84414359
+pk02	0.92207180
+SELECT COUNT(*) FROM docs_utf8mb4_general_ci_ngram WHERE MATCH(body) AGAINST('中文 abc');
+COUNT(*)
+2
+SELECT id,ROUND(MATCH(body) AGAINST('中文 abc'),8) AS score FROM docs_utf8mb4_general_ci_ngram WHERE MATCH(body) AGAINST('中文 abc') ORDER BY id;
+id	score
+pk02	0.83427785
+pk03	2.37759122
+SELECT COUNT(*) FROM docs_utf8mb4_general_ci_ngram WHERE MATCH(body) AGAINST('missingzxqv');
+COUNT(*)
+0
+SELECT id,ROUND(MATCH(body) AGAINST('missingzxqv'),8) AS score FROM docs_utf8mb4_general_ci_ngram WHERE MATCH(body) AGAINST('missingzxqv') ORDER BY id;
+id	score
+UPDATE docs_utf8mb4_general_ci_ngram SET body='alpha alpha 中文 数据库' WHERE id='pk01';
+INSERT INTO docs_utf8mb4_general_ci_ngram VALUES('pk07','ALPHA cafe 中文');
+DELETE FROM docs_utf8mb4_general_ci_ngram WHERE id='pk03';
+SELECT id,ROUND(MATCH(body) AGAINST('alpha cafe 中文 数据库'),8) AS score FROM docs_utf8mb4_general_ci_ngram WHERE MATCH(body) AGAINST('alpha cafe 中文 数据库') ORDER BY id;
+id	score
+pk01	4.39851082
+pk02	2.32458750
+pk07	3.64976369
+ALTER TABLE docs_utf8mb4_general_ci_ngram DROP INDEX ft;
+ALTER TABLE docs_utf8mb4_general_ci_ngram ADD FULLTEXT INDEX ft(body) WITH PARSER ngram;
+SELECT id,ROUND(MATCH(body) AGAINST('alpha cafe 中文 数据库'),8) AS score FROM docs_utf8mb4_general_ci_ngram WHERE MATCH(body) AGAINST('alpha cafe 中文 数据库') ORDER BY id;
+id	score
+pk01	4.39851082
+pk02	2.32458750
+pk07	3.64976369
+DROP TABLE docs_utf8mb4_general_ci_ngram;
+CREATE TABLE docs_utf8mb4_general_ci_ngram2(id VARCHAR(30) PRIMARY KEY,body TEXT) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci;
+INSERT INTO docs_utf8mb4_general_ci_ngram2 VALUES('pk01','ALPHA alpha café CAFÉ 数据库全文索引'),('pk02','Alpha alpha cafe abc 北京 南京市长江大桥'),('pk03','a alpha 123 abc 中文分词'),('pk04','the AND a'),('pk05',''),('pk06',NULL);
+ALTER TABLE docs_utf8mb4_general_ci_ngram2 ADD FULLTEXT INDEX ft(body) WITH PARSER ngram2;
+SELECT COUNT(*) FROM docs_utf8mb4_general_ci_ngram2 WHERE MATCH(body) AGAINST('alpha');
+COUNT(*)
+3
+SELECT id,ROUND(MATCH(body) AGAINST('alpha'),8) AS score FROM docs_utf8mb4_general_ci_ngram2 WHERE MATCH(body) AGAINST('alpha') ORDER BY id;
+id	score
+pk01	1.77736411
+pk02	1.80150943
+pk03	1.64167813
+SELECT COUNT(*) FROM docs_utf8mb4_general_ci_ngram2 WHERE MATCH(body) AGAINST('cafe café');
+COUNT(*)
+2
+SELECT id,ROUND(MATCH(body) AGAINST('cafe café'),8) AS score FROM docs_utf8mb4_general_ci_ngram2 WHERE MATCH(body) AGAINST('cafe café') ORDER BY id;
+id	score
+pk01	2.98488835
+pk02	1.97473155
+SELECT COUNT(*) FROM docs_utf8mb4_general_ci_ngram2 WHERE MATCH(body) AGAINST('数据库 南京');
+COUNT(*)
+2
+SELECT id,ROUND(MATCH(body) AGAINST('数据库 南京'),8) AS score FROM docs_utf8mb4_general_ci_ngram2 WHERE MATCH(body) AGAINST('数据库 南京') ORDER BY id;
+id	score
+pk01	2.57341044
+pk02	0.87301576
+SELECT COUNT(*) FROM docs_utf8mb4_general_ci_ngram2 WHERE MATCH(body) AGAINST('中文 abc');
+COUNT(*)
+2
+SELECT id,ROUND(MATCH(body) AGAINST('中文 abc'),8) AS score FROM docs_utf8mb4_general_ci_ngram2 WHERE MATCH(body) AGAINST('中文 abc') ORDER BY id;
+id	score
+pk02	1.18483893
+pk03	2.87307085
+SELECT COUNT(*) FROM docs_utf8mb4_general_ci_ngram2 WHERE MATCH(body) AGAINST('missingzxqv');
+COUNT(*)
+0
+SELECT id,ROUND(MATCH(body) AGAINST('missingzxqv'),8) AS score FROM docs_utf8mb4_general_ci_ngram2 WHERE MATCH(body) AGAINST('missingzxqv') ORDER BY id;
+id	score
+UPDATE docs_utf8mb4_general_ci_ngram2 SET body='alpha alpha 中文 数据库' WHERE id='pk01';
+INSERT INTO docs_utf8mb4_general_ci_ngram2 VALUES('pk07','ALPHA cafe 中文');
+DELETE FROM docs_utf8mb4_general_ci_ngram2 WHERE id='pk03';
+SELECT id,ROUND(MATCH(body) AGAINST('alpha cafe 中文 数据库'),8) AS score FROM docs_utf8mb4_general_ci_ngram2 WHERE MATCH(body) AGAINST('alpha cafe 中文 数据库') ORDER BY id;
+id	score
+pk01	6.50981500
+pk02	3.77624099
+pk07	5.64948671
+ALTER TABLE docs_utf8mb4_general_ci_ngram2 DROP INDEX ft;
+ALTER TABLE docs_utf8mb4_general_ci_ngram2 ADD FULLTEXT INDEX ft(body) WITH PARSER ngram2;
+SELECT id,ROUND(MATCH(body) AGAINST('alpha cafe 中文 数据库'),8) AS score FROM docs_utf8mb4_general_ci_ngram2 WHERE MATCH(body) AGAINST('alpha cafe 中文 数据库') ORDER BY id;
+id	score
+pk01	5.79605107
+pk02	3.23982723
+pk07	5.07214561
+DROP TABLE docs_utf8mb4_general_ci_ngram2;
+CREATE TABLE docs_utf8mb4_unicode_ci_beng(id VARCHAR(30) PRIMARY KEY,body TEXT) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+INSERT INTO docs_utf8mb4_unicode_ci_beng VALUES('pk01','ALPHA alpha café CAFÉ 数据库全文索引'),('pk02','Alpha alpha cafe abc 北京 南京市长江大桥'),('pk03','a alpha 123 abc 中文分词'),('pk04','the AND a'),('pk05',''),('pk06',NULL);
+ALTER TABLE docs_utf8mb4_unicode_ci_beng ADD FULLTEXT INDEX ft(body) WITH PARSER beng;
+SELECT COUNT(*) FROM docs_utf8mb4_unicode_ci_beng WHERE MATCH(body) AGAINST('alpha');
+COUNT(*)
+3
+SELECT id,ROUND(MATCH(body) AGAINST('alpha'),8) AS score FROM docs_utf8mb4_unicode_ci_beng WHERE MATCH(body) AGAINST('alpha') ORDER BY id;
+id	score
+pk01	0.40000000
+pk02	0.38732394
+pk03	0.33132530
+SELECT COUNT(*) FROM docs_utf8mb4_unicode_ci_beng WHERE MATCH(body) AGAINST('cafe café');
+COUNT(*)
+2
+SELECT id,ROUND(MATCH(body) AGAINST('cafe café'),8) AS score FROM docs_utf8mb4_unicode_ci_beng WHERE MATCH(body) AGAINST('cafe café') ORDER BY id;
+id	score
+pk01	0.94045866
+pk02	0.70278840
+SELECT COUNT(*) FROM docs_utf8mb4_unicode_ci_beng WHERE MATCH(body) AGAINST('数据库 南京');
+COUNT(*)
+0
+SELECT id,ROUND(MATCH(body) AGAINST('数据库 南京'),8) AS score FROM docs_utf8mb4_unicode_ci_beng WHERE MATCH(body) AGAINST('数据库 南京') ORDER BY id;
+id	score
+SELECT COUNT(*) FROM docs_utf8mb4_unicode_ci_beng WHERE MATCH(body) AGAINST('中文 abc');
+COUNT(*)
+2
+SELECT id,ROUND(MATCH(body) AGAINST('中文 abc'),8) AS score FROM docs_utf8mb4_unicode_ci_beng WHERE MATCH(body) AGAINST('中文 abc') ORDER BY id;
+id	score
+pk02	0.70278840
+pk03	0.77899438
+SELECT COUNT(*) FROM docs_utf8mb4_unicode_ci_beng WHERE MATCH(body) AGAINST('missingzxqv');
+COUNT(*)
+0
+SELECT id,ROUND(MATCH(body) AGAINST('missingzxqv'),8) AS score FROM docs_utf8mb4_unicode_ci_beng WHERE MATCH(body) AGAINST('missingzxqv') ORDER BY id;
+id	score
+UPDATE docs_utf8mb4_unicode_ci_beng SET body='alpha alpha 中文 数据库' WHERE id='pk01';
+INSERT INTO docs_utf8mb4_unicode_ci_beng VALUES('pk07','ALPHA cafe 中文');
+DELETE FROM docs_utf8mb4_unicode_ci_beng WHERE id='pk03';
+SELECT id,ROUND(MATCH(body) AGAINST('alpha cafe 中文 数据库'),8) AS score FROM docs_utf8mb4_unicode_ci_beng WHERE MATCH(body) AGAINST('alpha cafe 中文 数据库') ORDER BY id;
+id	score
+pk01	2.91446951
+pk02	1.09011235
+pk07	1.99761868
+ALTER TABLE docs_utf8mb4_unicode_ci_beng DROP INDEX ft;
+ALTER TABLE docs_utf8mb4_unicode_ci_beng ADD FULLTEXT INDEX ft(body) WITH PARSER beng;
+SELECT id,ROUND(MATCH(body) AGAINST('alpha cafe 中文 数据库'),8) AS score FROM docs_utf8mb4_unicode_ci_beng WHERE MATCH(body) AGAINST('alpha cafe 中文 数据库') ORDER BY id;
+id	score
+pk01	2.91446951
+pk02	1.09011235
+pk07	1.99761868
+DROP TABLE docs_utf8mb4_unicode_ci_beng;
+CREATE TABLE docs_utf8mb4_unicode_ci_ik(id VARCHAR(30) PRIMARY KEY,body TEXT) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+INSERT INTO docs_utf8mb4_unicode_ci_ik VALUES('pk01','ALPHA alpha café CAFÉ 数据库全文索引'),('pk02','Alpha alpha cafe abc 北京 南京市长江大桥'),('pk03','a alpha 123 abc 中文分词'),('pk04','the AND a'),('pk05',''),('pk06',NULL);
+ALTER TABLE docs_utf8mb4_unicode_ci_ik ADD FULLTEXT INDEX ft(body) WITH PARSER ik;
+SELECT COUNT(*) FROM docs_utf8mb4_unicode_ci_ik WHERE MATCH(body) AGAINST('alpha');
+COUNT(*)
+3
+SELECT id,ROUND(MATCH(body) AGAINST('alpha'),8) AS score FROM docs_utf8mb4_unicode_ci_ik WHERE MATCH(body) AGAINST('alpha') ORDER BY id;
+id	score
+pk01	0.38732394
+pk02	0.37542662
+pk03	0.29891304
+SELECT COUNT(*) FROM docs_utf8mb4_unicode_ci_ik WHERE MATCH(body) AGAINST('cafe café');
+COUNT(*)
+2
+SELECT id,ROUND(MATCH(body) AGAINST('cafe café'),8) AS score FROM docs_utf8mb4_unicode_ci_ik WHERE MATCH(body) AGAINST('cafe café') ORDER BY id;
+id	score
+pk01	2.01297364
+pk02	1.48104796
+SELECT COUNT(*) FROM docs_utf8mb4_unicode_ci_ik WHERE MATCH(body) AGAINST('数据库 南京');
+COUNT(*)
+1
+SELECT id,ROUND(MATCH(body) AGAINST('数据库 南京'),8) AS score FROM docs_utf8mb4_unicode_ci_ik WHERE MATCH(body) AGAINST('数据库 南京') ORDER BY id;
+id	score
+pk01	1.55349052
+SELECT COUNT(*) FROM docs_utf8mb4_unicode_ci_ik WHERE MATCH(body) AGAINST('中文 abc');
+COUNT(*)
+2
+SELECT id,ROUND(MATCH(body) AGAINST('中文 abc'),8) AS score FROM docs_utf8mb4_unicode_ci_ik WHERE MATCH(body) AGAINST('中文 abc') ORDER BY id;
+id	score
+pk02	0.67001589
+pk03	2.25627893
+SELECT COUNT(*) FROM docs_utf8mb4_unicode_ci_ik WHERE MATCH(body) AGAINST('missingzxqv');
+COUNT(*)
+0
+SELECT id,ROUND(MATCH(body) AGAINST('missingzxqv'),8) AS score FROM docs_utf8mb4_unicode_ci_ik WHERE MATCH(body) AGAINST('missingzxqv') ORDER BY id;
+id	score
+UPDATE docs_utf8mb4_unicode_ci_ik SET body='alpha alpha 中文 数据库' WHERE id='pk01';
+INSERT INTO docs_utf8mb4_unicode_ci_ik VALUES('pk07','ALPHA cafe 中文');
+DELETE FROM docs_utf8mb4_unicode_ci_ik WHERE id='pk03';
+SELECT id,ROUND(MATCH(body) AGAINST('alpha cafe 中文 数据库'),8) AS score FROM docs_utf8mb4_unicode_ci_ik WHERE MATCH(body) AGAINST('alpha cafe 中文 数据库') ORDER BY id;
+id	score
+pk01	2.91446951
+pk02	1.04544251
+pk07	1.99761868
+ALTER TABLE docs_utf8mb4_unicode_ci_ik DROP INDEX ft;
+ALTER TABLE docs_utf8mb4_unicode_ci_ik ADD FULLTEXT INDEX ft(body) WITH PARSER ik;
+SELECT id,ROUND(MATCH(body) AGAINST('alpha cafe 中文 数据库'),8) AS score FROM docs_utf8mb4_unicode_ci_ik WHERE MATCH(body) AGAINST('alpha cafe 中文 数据库') ORDER BY id;
+id	score
+pk01	2.91446951
+pk02	1.04544251
+pk07	1.99761868
+DROP TABLE docs_utf8mb4_unicode_ci_ik;
+CREATE TABLE docs_utf8mb4_unicode_ci_space(id VARCHAR(30) PRIMARY KEY,body TEXT) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+INSERT INTO docs_utf8mb4_unicode_ci_space VALUES('pk01','ALPHA alpha café CAFÉ 数据库全文索引'),('pk02','Alpha alpha cafe abc 北京 南京市长江大桥'),('pk03','a alpha 123 abc 中文分词'),('pk04','the AND a'),('pk05',''),('pk06',NULL);
+ALTER TABLE docs_utf8mb4_unicode_ci_space ADD FULLTEXT INDEX ft(body) WITH PARSER space;
+SELECT COUNT(*) FROM docs_utf8mb4_unicode_ci_space WHERE MATCH(body) AGAINST('alpha');
+COUNT(*)
+3
+SELECT id,ROUND(MATCH(body) AGAINST('alpha'),8) AS score FROM docs_utf8mb4_unicode_ci_space WHERE MATCH(body) AGAINST('alpha') ORDER BY id;
+id	score
+pk01	0.40000000
+pk02	0.40000000
+pk03	0.33132530
+SELECT COUNT(*) FROM docs_utf8mb4_unicode_ci_space WHERE MATCH(body) AGAINST('cafe café');
+COUNT(*)
+2
+SELECT id,ROUND(MATCH(body) AGAINST('cafe café'),8) AS score FROM docs_utf8mb4_unicode_ci_space WHERE MATCH(body) AGAINST('cafe café') ORDER BY id;
+id	score
+pk01	0.94045866
+pk02	0.73893181
+SELECT COUNT(*) FROM docs_utf8mb4_unicode_ci_space WHERE MATCH(body) AGAINST('数据库 南京');
+COUNT(*)
+0
+SELECT id,ROUND(MATCH(body) AGAINST('数据库 南京'),8) AS score FROM docs_utf8mb4_unicode_ci_space WHERE MATCH(body) AGAINST('数据库 南京') ORDER BY id;
+id	score
+SELECT COUNT(*) FROM docs_utf8mb4_unicode_ci_space WHERE MATCH(body) AGAINST('中文 abc');
+COUNT(*)
+2
+SELECT id,ROUND(MATCH(body) AGAINST('中文 abc'),8) AS score FROM docs_utf8mb4_unicode_ci_space WHERE MATCH(body) AGAINST('中文 abc') ORDER BY id;
+id	score
+pk02	0.73893181
+pk03	0.77899438
+SELECT COUNT(*) FROM docs_utf8mb4_unicode_ci_space WHERE MATCH(body) AGAINST('missingzxqv');
+COUNT(*)
+0
+SELECT id,ROUND(MATCH(body) AGAINST('missingzxqv'),8) AS score FROM docs_utf8mb4_unicode_ci_space WHERE MATCH(body) AGAINST('missingzxqv') ORDER BY id;
+id	score
+UPDATE docs_utf8mb4_unicode_ci_space SET body='alpha alpha 中文 数据库' WHERE id='pk01';
+INSERT INTO docs_utf8mb4_unicode_ci_space VALUES('pk07','ALPHA cafe 中文');
+DELETE FROM docs_utf8mb4_unicode_ci_space WHERE id='pk03';
+SELECT id,ROUND(MATCH(body) AGAINST('alpha cafe 中文 数据库'),8) AS score FROM docs_utf8mb4_unicode_ci_space WHERE MATCH(body) AGAINST('alpha cafe 中文 数据库') ORDER BY id;
+id	score
+pk01	2.24866688
+pk02	1.13893181
+pk07	1.24535856
+ALTER TABLE docs_utf8mb4_unicode_ci_space DROP INDEX ft;
+ALTER TABLE docs_utf8mb4_unicode_ci_space ADD FULLTEXT INDEX ft(body) WITH PARSER space;
+SELECT id,ROUND(MATCH(body) AGAINST('alpha cafe 中文 数据库'),8) AS score FROM docs_utf8mb4_unicode_ci_space WHERE MATCH(body) AGAINST('alpha cafe 中文 数据库') ORDER BY id;
+id	score
+pk01	2.24866688
+pk02	1.13893181
+pk07	1.24535856
+DROP TABLE docs_utf8mb4_unicode_ci_space;
+CREATE TABLE docs_utf8mb4_unicode_ci_ngram(id VARCHAR(30) PRIMARY KEY,body TEXT) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+INSERT INTO docs_utf8mb4_unicode_ci_ngram VALUES('pk01','ALPHA alpha café CAFÉ 数据库全文索引'),('pk02','Alpha alpha cafe abc 北京 南京市长江大桥'),('pk03','a alpha 123 abc 中文分词'),('pk04','the AND a'),('pk05',''),('pk06',NULL);
+ALTER TABLE docs_utf8mb4_unicode_ci_ngram ADD FULLTEXT INDEX ft(body) WITH PARSER ngram;
+SELECT COUNT(*) FROM docs_utf8mb4_unicode_ci_ngram WHERE MATCH(body) AGAINST('alpha');
+COUNT(*)
+3
+SELECT id,ROUND(MATCH(body) AGAINST('alpha'),8) AS score FROM docs_utf8mb4_unicode_ci_ngram WHERE MATCH(body) AGAINST('alpha') ORDER BY id;
+id	score
+pk01	1.07317073
+pk02	1.07317073
+pk03	0.96069869
+SELECT COUNT(*) FROM docs_utf8mb4_unicode_ci_ngram WHERE MATCH(body) AGAINST('cafe café');
+COUNT(*)
+2
+SELECT id,ROUND(MATCH(body) AGAINST('cafe café'),8) AS score FROM docs_utf8mb4_unicode_ci_ngram WHERE MATCH(body) AGAINST('cafe café') ORDER BY id;
+id	score
+pk01	1.89238634
+pk02	1.25141677
+SELECT COUNT(*) FROM docs_utf8mb4_unicode_ci_ngram WHERE MATCH(body) AGAINST('数据库 南京');
+COUNT(*)
+2
+SELECT id,ROUND(MATCH(body) AGAINST('数据库 南京'),8) AS score FROM docs_utf8mb4_unicode_ci_ngram WHERE MATCH(body) AGAINST('数据库 南京') ORDER BY id;
+id	score
+pk01	1.84414359
+pk02	0.92207180
+SELECT COUNT(*) FROM docs_utf8mb4_unicode_ci_ngram WHERE MATCH(body) AGAINST('中文 abc');
+COUNT(*)
+2
+SELECT id,ROUND(MATCH(body) AGAINST('中文 abc'),8) AS score FROM docs_utf8mb4_unicode_ci_ngram WHERE MATCH(body) AGAINST('中文 abc') ORDER BY id;
+id	score
+pk02	0.83427785
+pk03	2.37759122
+SELECT COUNT(*) FROM docs_utf8mb4_unicode_ci_ngram WHERE MATCH(body) AGAINST('missingzxqv');
+COUNT(*)
+0
+SELECT id,ROUND(MATCH(body) AGAINST('missingzxqv'),8) AS score FROM docs_utf8mb4_unicode_ci_ngram WHERE MATCH(body) AGAINST('missingzxqv') ORDER BY id;
+id	score
+UPDATE docs_utf8mb4_unicode_ci_ngram SET body='alpha alpha 中文 数据库' WHERE id='pk01';
+INSERT INTO docs_utf8mb4_unicode_ci_ngram VALUES('pk07','ALPHA cafe 中文');
+DELETE FROM docs_utf8mb4_unicode_ci_ngram WHERE id='pk03';
+SELECT id,ROUND(MATCH(body) AGAINST('alpha cafe 中文 数据库'),8) AS score FROM docs_utf8mb4_unicode_ci_ngram WHERE MATCH(body) AGAINST('alpha cafe 中文 数据库') ORDER BY id;
+id	score
+pk01	4.39851082
+pk02	2.32458750
+pk07	3.64976369
+ALTER TABLE docs_utf8mb4_unicode_ci_ngram DROP INDEX ft;
+ALTER TABLE docs_utf8mb4_unicode_ci_ngram ADD FULLTEXT INDEX ft(body) WITH PARSER ngram;
+SELECT id,ROUND(MATCH(body) AGAINST('alpha cafe 中文 数据库'),8) AS score FROM docs_utf8mb4_unicode_ci_ngram WHERE MATCH(body) AGAINST('alpha cafe 中文 数据库') ORDER BY id;
+id	score
+pk01	4.39851082
+pk02	2.32458750
+pk07	3.64976369
+DROP TABLE docs_utf8mb4_unicode_ci_ngram;
+CREATE TABLE docs_utf8mb4_unicode_ci_ngram2(id VARCHAR(30) PRIMARY KEY,body TEXT) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+INSERT INTO docs_utf8mb4_unicode_ci_ngram2 VALUES('pk01','ALPHA alpha café CAFÉ 数据库全文索引'),('pk02','Alpha alpha cafe abc 北京 南京市长江大桥'),('pk03','a alpha 123 abc 中文分词'),('pk04','the AND a'),('pk05',''),('pk06',NULL);
+ALTER TABLE docs_utf8mb4_unicode_ci_ngram2 ADD FULLTEXT INDEX ft(body) WITH PARSER ngram2;
+SELECT COUNT(*) FROM docs_utf8mb4_unicode_ci_ngram2 WHERE MATCH(body) AGAINST('alpha');
+COUNT(*)
+3
+SELECT id,ROUND(MATCH(body) AGAINST('alpha'),8) AS score FROM docs_utf8mb4_unicode_ci_ngram2 WHERE MATCH(body) AGAINST('alpha') ORDER BY id;
+id	score
+pk01	1.77736411
+pk02	1.80150943
+pk03	1.64167813
+SELECT COUNT(*) FROM docs_utf8mb4_unicode_ci_ngram2 WHERE MATCH(body) AGAINST('cafe café');
+COUNT(*)
+2
+SELECT id,ROUND(MATCH(body) AGAINST('cafe café'),8) AS score FROM docs_utf8mb4_unicode_ci_ngram2 WHERE MATCH(body) AGAINST('cafe café') ORDER BY id;
+id	score
+pk01	2.98488835
+pk02	1.97473155
+SELECT COUNT(*) FROM docs_utf8mb4_unicode_ci_ngram2 WHERE MATCH(body) AGAINST('数据库 南京');
+COUNT(*)
+2
+SELECT id,ROUND(MATCH(body) AGAINST('数据库 南京'),8) AS score FROM docs_utf8mb4_unicode_ci_ngram2 WHERE MATCH(body) AGAINST('数据库 南京') ORDER BY id;
+id	score
+pk01	2.57341044
+pk02	0.87301576
+SELECT COUNT(*) FROM docs_utf8mb4_unicode_ci_ngram2 WHERE MATCH(body) AGAINST('中文 abc');
+COUNT(*)
+2
+SELECT id,ROUND(MATCH(body) AGAINST('中文 abc'),8) AS score FROM docs_utf8mb4_unicode_ci_ngram2 WHERE MATCH(body) AGAINST('中文 abc') ORDER BY id;
+id	score
+pk02	1.18483893
+pk03	2.87307085
+SELECT COUNT(*) FROM docs_utf8mb4_unicode_ci_ngram2 WHERE MATCH(body) AGAINST('missingzxqv');
+COUNT(*)
+0
+SELECT id,ROUND(MATCH(body) AGAINST('missingzxqv'),8) AS score FROM docs_utf8mb4_unicode_ci_ngram2 WHERE MATCH(body) AGAINST('missingzxqv') ORDER BY id;
+id	score
+UPDATE docs_utf8mb4_unicode_ci_ngram2 SET body='alpha alpha 中文 数据库' WHERE id='pk01';
+INSERT INTO docs_utf8mb4_unicode_ci_ngram2 VALUES('pk07','ALPHA cafe 中文');
+DELETE FROM docs_utf8mb4_unicode_ci_ngram2 WHERE id='pk03';
+SELECT id,ROUND(MATCH(body) AGAINST('alpha cafe 中文 数据库'),8) AS score FROM docs_utf8mb4_unicode_ci_ngram2 WHERE MATCH(body) AGAINST('alpha cafe 中文 数据库') ORDER BY id;
+id	score
+pk01	6.50981500
+pk02	3.77624099
+pk07	5.64948671
+ALTER TABLE docs_utf8mb4_unicode_ci_ngram2 DROP INDEX ft;
+ALTER TABLE docs_utf8mb4_unicode_ci_ngram2 ADD FULLTEXT INDEX ft(body) WITH PARSER ngram2;
+SELECT id,ROUND(MATCH(body) AGAINST('alpha cafe 中文 数据库'),8) AS score FROM docs_utf8mb4_unicode_ci_ngram2 WHERE MATCH(body) AGAINST('alpha cafe 中文 数据库') ORDER BY id;
+id	score
+pk01	5.79605107
+pk02	3.23982723
+pk07	5.07214561
+DROP TABLE docs_utf8mb4_unicode_ci_ngram2;
+DROP DATABASE fts_build_collations;

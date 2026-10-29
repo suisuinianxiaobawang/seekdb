@@ -55,7 +55,7 @@ public:
   ObTextDaaTIter() : ObSRDaaTIterImpl(),
       bm25_param_estimator_(),
       mode_flag_(sql::ObMatchAgainstMode::NATURAL_LANGUAGE_MODE),
-      function_lookup_mode_(false), union_heads_{}, union_pending_(0), union_started_(false) {}
+      function_lookup_mode_(false) {}
   virtual ~ObTextDaaTIter() { reset(); }
 
   int init(const ObTextDaaTParam &param);
@@ -72,11 +72,7 @@ private:
   static constexpr int64_t MAX_UNION_DIMS = 8;
   int get_union_rows(const int64_t capacity, int64_t &count);
   int compare_union_ids(const ObDatum &lhs, const ObDatum &rhs, int &cmp) const;
-  void reset_union();
   ObDomainIdCmp union_id_cmp_;
-  const ObDatum *union_heads_[MAX_UNION_DIMS];
-  uint64_t union_pending_;
-  bool union_started_;
   DISALLOW_COPY_AND_ASSIGN(ObTextDaaTIter);
 };
 

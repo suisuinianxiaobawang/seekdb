@@ -51,7 +51,14 @@ private:
   ObObjMeta meta_;
 };
 
-typedef common::hash::ObHashMap<ObFTWord, int64_t> ObFTWordMap;
+// A word map is owned by one parser invocation or one index scan, never shared
+// between workers. Shared dictionaries and stopword sets use separate maps.
+// Word maps are confined to one parser/scan, including their node allocator.
+using FTWordNode = common::hash::HashMapTypes<ObFTWord, int64_t>::AllocType;
+using FTWordNodeAllocator = common::hash::SimpleAllocer<FTWordNode,
+    common::hash::NodeNumTraits<FTWordNode>::NODE_NUM, common::hash::NoPthreadDefendMode>;
+typedef common::hash::ObHashMap<ObFTWord, int64_t, common::hash::NoPthreadDefendMode,
+    common::hash::hash_func<ObFTWord>, common::hash::equal_to<ObFTWord>, FTWordNodeAllocator> ObFTWordMap;
 
 class ObAddWordFlag final
 {

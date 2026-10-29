@@ -93,11 +93,13 @@ private:
 };
 
 class ObFTCacheRangeContainer;
+class ObIFTDict;
+class SharedIKDictionaries;
 class ObFTDictHub
 {
 public:
-  ObFTDictHub() : is_inited_(false), dict_map_(), rw_dict_lock_() {}
-  ~ObFTDictHub() {}
+  ObFTDictHub() : is_inited_(false), dict_map_(), rw_dict_lock_(), shared_dicts_(nullptr) {}
+  ~ObFTDictHub();
 
   int init();
 
@@ -106,6 +108,9 @@ public:
   int build_cache(const ObFTDictDesc &desc, ObFTCacheRangeContainer &container);
 
   int load_cache(const ObFTDictDesc &desc, ObFTCacheRangeContainer &container);
+
+  // Only the immutable, compiled-in UTF-8 IK dictionaries are shared.
+  int get_shared_dict(const ObFTDictDesc &desc, ObIFTDict *&dict);
 
 private:
   int get_dict_info(const ObFTDictInfoKey &key, ObFTDictInfo &info);
@@ -118,6 +123,8 @@ private:
   // holds info of dict
   hash::ObHashMap<ObFTDictInfoKey, ObFTDictInfo> dict_map_;
   ObBucketLock rw_dict_lock_;
+  SharedIKDictionaries *shared_dicts_;
+  DISALLOW_COPY_AND_ASSIGN(ObFTDictHub);
 };
 
 } //  namespace storage

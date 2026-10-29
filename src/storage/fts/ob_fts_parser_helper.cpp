@@ -255,6 +255,19 @@ int ObFTParseData::get_dict_hub(ObFTDictHub *&hub)
 
 ////////////////////////////////////////////////////////////////////////////////
 // ObFTParseHelper
+// One index scan can retain immutable built-in IK dictionaries. The document
+// arena is independent and may be reset after every call to segment().
+class IKParserState final
+{
+public:
+  IKParserState(ObIAllocator &allocator, ObFTDictHub *hub)
+      : dictionary_allocator_(ObMemAttr("FTParserDict")),
+        parser_(allocator, hub, dictionary_allocator_)
+  {}
+  ObArenaAllocator dictionary_allocator_;
+  ObIKFTParser parser_;
+};
+
 int ObFTParseHelper::segment(
     const ObFTParserProperty &property,
     const int64_t parser_version,
@@ -263,7 +276,8 @@ int ObFTParseHelper::segment(
     const char *ft,
     const int64_t ft_len,
     common::ObIAllocator &allocator,
-    ObAddWord &add_word)
+    ObAddWord &add_word,
+    IKParserState **ik_parser_state)
 {
   int ret = OB_SUCCESS;
   if (OB_UNLIKELY(parser_version < 0 || nullptr == parser_desc || nullptr == cs || nullptr == ft || 0 >= ft_len)) {
@@ -282,7 +296,21 @@ int ObFTParseHelper::segment(
     param.min_ngram_size_ = property.min_ngram_token_size_;
     param.max_ngram_size_ = property.max_ngram_token_size_;
 
-    if (OB_FAIL(parser_desc->segment(&param, iter))) {
+    if (OB_NOT_NULL(ik_parser_state)) {
+      ObFTDictHub *hub = nullptr;
+      if (OB_NOT_NULL(*ik_parser_state)) {
+      } else if (OB_FAIL(ObFTParseData::instance().get_dict_hub(hub))) {
+      } else if (OB_ISNULL(*ik_parser_state = OB_NEW(IKParserState, "FTParser", allocator, hub))) {
+        ret = OB_ALLOCATE_MEMORY_FAILED;
+      }
+      if (OB_SUCC(ret)) {
+        iter = &(*ik_parser_state)->parser_;
+        ret = (*ik_parser_state)->parser_.init(param);
+      }
+    } else {
+      ret = parser_desc->segment(&param, iter);
+    }
+    if (OB_FAIL(ret)) {
     } else if (OB_ISNULL(iter)) {
       ret = OB_ERR_UNEXPECTED;
     } else {
@@ -302,19 +330,25 @@ int ObFTParseHelper::segment(
       }
     }
     if (OB_NOT_NULL(iter)) {
-      parser_desc->free_token_iter(&param, iter);
+      if (OB_NOT_NULL(ik_parser_state)) {
+        (*ik_parser_state)->parser_.reuse();
+      } else {
+        parser_desc->free_token_iter(&param, iter);
+      }
       iter = nullptr;
     }
   }
   return ret;
 }
 
-ObFTParseHelper::ObFTParseHelper()
+ObFTParseHelper::ObFTParseHelper(bool reuse_parser)
     : allocator_(nullptr),
     parser_desc_(nullptr),
     parser_name_(),
     add_word_flag_(),
     parser_property_(),
+    reuse_parser_(reuse_parser),
+    ik_parser_state_(nullptr),
     is_inited_(false)
 {
 }
@@ -379,6 +413,10 @@ int ObFTParseHelper::init(
 
 void ObFTParseHelper::reset()
 {
+  if (OB_NOT_NULL(ik_parser_state_)) {
+    OB_DELETE(IKParserState, "FTParser", ik_parser_state_);
+    ik_parser_state_ = nullptr;
+  }
   parser_desc_ = nullptr;
   allocator_ = nullptr;
   add_word_flag_.clear();
@@ -414,7 +452,8 @@ int ObFTParseHelper::segment(
                     fulltext,
                     fulltext_len,
                     *allocator_,
-                    add_word))) {
+                    add_word,
+                    reuse_parser_ && parser_name_.is_ik() ? &ik_parser_state_ : nullptr))) {
     } else {
       doc_length = add_word.get_add_word_count();
     }

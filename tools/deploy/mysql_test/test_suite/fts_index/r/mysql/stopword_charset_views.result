@@ -1,0 +1,79 @@
+SET NAMES utf8mb4;
+SELECT TOKENIZE(CONVERT('THE thé ThE the WHERE whére with WÍTH alpha DATABASE café' USING utf8mb4), 'beng', '[{"output":"all"},{"additional_args":[{"min_token_size":1}]}]') AS tokens;
+tokens
+{"tokens": [{"café": 1}, {"database": 1}, {"alpha": 1}], "doc_len": 3}
+SELECT TOKENIZE(CONVERT('a an about com de en for from how i in is it la of on or that this to was what when where who will with und www' USING utf8mb4), 'beng', '[{"output":"all"},{"additional_args":[{"min_token_size":1}]}]') AS tokens;
+tokens
+{"tokens": [], "doc_len": 0}
+SELECT TOKENIZE(CONVERT('ＡＢＣ İ ß 数据库 😀 é' USING utf8mb4), 'beng', '[{"output":"all"},{"additional_args":[{"min_token_size":1}]}]') AS tokens;
+tokens
+{"tokens": [{"é": 1}, {"ß": 1}, {"😀": 1}, {"数据库": 1}, {"ａｂｃ": 1}], "doc_len": 5}
+SELECT TOKENIZE(CONVERT('THE thé ThE the WHERE whére with WÍTH alpha DATABASE café' USING binary), 'beng', '[{"output":"all"},{"additional_args":[{"min_token_size":1}]}]') AS tokens;
+tokens
+{"tokens": [{"th": 1}, {"alpha": 1}, {"caf": 1}, {"DATABASE": 1}], "doc_len": 4}
+SELECT TOKENIZE(CONVERT('a an about com de en for from how i in is it la of on or that this to was what when where who will with und www' USING binary), 'beng', '[{"output":"all"},{"additional_args":[{"min_token_size":1}]}]') AS tokens;
+tokens
+{"tokens": [], "doc_len": 0}
+SELECT TOKENIZE(CONVERT('ＡＢＣ İ ß 数据库 😀 é' USING binary), 'beng', '[{"output":"all"},{"additional_args":[{"min_token_size":1}]}]') AS tokens;
+tokens
+{"tokens": [{"e": 1}], "doc_len": 1}
+SELECT TOKENIZE(CONVERT('THE thé ThE the WHERE whére with WÍTH alpha DATABASE café' USING utf8mb4), 'space', '[{"output":"all"},{"additional_args":[{"min_token_size":1}]}]') AS tokens;
+tokens
+{"tokens": [{"café": 1}, {"database": 1}, {"alpha": 1}], "doc_len": 3}
+SELECT TOKENIZE(CONVERT('a an about com de en for from how i in is it la of on or that this to was what when where who will with und www' USING utf8mb4), 'space', '[{"output":"all"},{"additional_args":[{"min_token_size":1}]}]') AS tokens;
+tokens
+{"tokens": [], "doc_len": 0}
+SELECT TOKENIZE(CONVERT('ＡＢＣ İ ß 数据库 😀 é' USING utf8mb4), 'space', '[{"output":"all"},{"additional_args":[{"min_token_size":1}]}]') AS tokens;
+tokens
+{"tokens": [{"é": 1}, {"ß": 1}, {"数据库": 1}, {"ａｂｃ": 1}], "doc_len": 4}
+SELECT TOKENIZE(CONVERT('THE thé ThE the WHERE whére with WÍTH alpha DATABASE café' USING binary), 'space', '[{"output":"all"},{"additional_args":[{"min_token_size":1}]}]') AS tokens;
+tokens
+{"tokens": [{"th": 1}, {"TH": 1}, {"alpha": 1}, {"re": 1}, {"wh": 1}, {"W": 1}, {"caf": 1}, {"DATABASE": 1}], "doc_len": 8}
+SELECT TOKENIZE(CONVERT('a an about com de en for from how i in is it la of on or that this to was what when where who will with und www' USING binary), 'space', '[{"output":"all"},{"additional_args":[{"min_token_size":1}]}]') AS tokens;
+tokens
+{"tokens": [], "doc_len": 0}
+SELECT TOKENIZE(CONVERT('ＡＢＣ İ ß 数据库 😀 é' USING binary), 'space', '[{"output":"all"},{"additional_args":[{"min_token_size":1}]}]') AS tokens;
+tokens
+{"tokens": [{"e": 1}], "doc_len": 1}
+SELECT TOKENIZE(CONVERT('THE thé ThE the WHERE whére with WÍTH alpha DATABASE café' USING utf8mb4), 'ngram', '[{"output":"all"}]') AS tokens;
+tokens
+{"tokens": [{"ab": 1}, {"wh": 2}, {"th": 6}, {"wí": 2}, {"hé": 6}, {"af": 1}, {"at": 1}, {"re": 2}, {"ca": 1}, {"se": 1}, {"da": 1}, {"ba": 1}, {"ta": 1}, {"al": 1}, {"ít": 2}, {"ér": 2}, {"ph": 1}, {"lp": 1}, {"as": 1}, {"fé": 1}, {"ha": 1}], "doc_len": 36}
+SELECT TOKENIZE(CONVERT('a an about com de en for from how i in is it la of on or that this to was what when where who will with und www' USING utf8mb4), 'ngram', '[{"output":"all"}]') AS tokens;
+tokens
+{"tokens": [{"as": 1}, {"ww": 2}, {"th": 3}, {"ha": 2}, {"or": 2}, {"it": 2}, {"ow": 1}, {"fo": 1}, {"is": 2}, {"ll": 1}, {"of": 1}, {"at": 2}, {"wa": 1}, {"in": 1}, {"an": 1}, {"fr": 1}, {"il": 1}, {"co": 1}, {"ro": 1}, {"un": 1}, {"ab": 1}, {"en": 2}, {"la": 1}, {"nd": 1}, {"er": 1}, {"bo": 1}, {"wi": 2}, {"de": 1}, {"hi": 1}, {"wh": 4}, {"re": 1}, {"he": 2}, {"to": 1}, {"ou": 1}, {"ho": 2}, {"ut": 1}, {"om": 2}, {"on": 1}], "doc_len": 54}
+SELECT TOKENIZE(CONVERT('ＡＢＣ İ ß 数据库 😀 é' USING utf8mb4), 'ngram', '[{"output":"all"}]') AS tokens;
+tokens
+{"tokens": [{"数据": 1}, {"é": 1}, {"ｂｃ": 1}, {"据库": 1}, {"ａｂ": 1}], "doc_len": 5}
+SELECT TOKENIZE(CONVERT('THE thé ThE the WHERE whére with WÍTH alpha DATABASE café' USING binary), 'ngram', '[{"output":"all"}]') AS tokens;
+tokens
+{"tokens": [{"TA": 1}, {"he": 1}, {"ca": 1}, {"th": 3}, {"lp": 1}, {"TH": 2}, {"re": 1}, {"af": 1}, {"ER": 1}, {"Th": 1}, {"RE": 1}, {"ph": 1}, {"BA": 1}, {"AB": 1}, {"wh": 1}, {"SE": 1}, {"DA": 1}, {"wi": 1}, {"AT": 1}, {"al": 1}, {"hE": 1}, {"it": 1}, {"AS": 1}, {"HE": 2}, {"WH": 1}, {"ha": 1}], "doc_len": 30}
+SELECT TOKENIZE(CONVERT('a an about com de en for from how i in is it la of on or that this to was what when where who will with und www' USING binary), 'ngram', '[{"output":"all"}]') AS tokens;
+tokens
+{"tokens": [{"on": 1}, {"hi": 1}, {"ab": 1}, {"bo": 1}, {"fo": 1}, {"or": 2}, {"om": 2}, {"il": 1}, {"ll": 1}, {"to": 1}, {"de": 1}, {"ow": 1}, {"of": 1}, {"in": 1}, {"wh": 4}, {"ha": 2}, {"an": 1}, {"at": 2}, {"wa": 1}, {"ro": 1}, {"ut": 1}, {"fr": 1}, {"is": 2}, {"un": 1}, {"er": 1}, {"nd": 1}, {"wi": 2}, {"ho": 2}, {"en": 2}, {"as": 1}, {"la": 1}, {"co": 1}, {"ww": 2}, {"th": 3}, {"it": 2}, {"ou": 1}, {"re": 1}, {"he": 2}], "doc_len": 54}
+SELECT TOKENIZE(CONVERT('ＡＢＣ İ ß 数据库 😀 é' USING binary), 'ngram', '[{"output":"all"}]') AS tokens;
+tokens
+{"tokens": [], "doc_len": 0}
+SELECT TOKENIZE(CONVERT('THE thé ThE the WHERE whére with WÍTH alpha DATABASE café' USING utf8mb4), 'ik', '[{"output":"all"}]') AS tokens;
+tokens
+{"tokens": [{"where": 1}, {"wh": 1}, {"th": 2}, {"caf": 1}, {"re": 1}, {"database": 1}, {"alpha": 1}, {"w": 1}, {"with": 1}, {"the": 3}], "doc_len": 13}
+SELECT TOKENIZE(CONVERT('a an about com de en for from how i in is it la of on or that this to was what when where who will with und www' USING utf8mb4), 'ik', '[{"output":"all"}]') AS tokens;
+tokens
+{"tokens": [{"or": 1}, {"who": 1}, {"it": 1}, {"a": 1}, {"was": 1}, {"is": 1}, {"how": 1}, {"of": 1}, {"in": 1}, {"what": 1}, {"com": 1}, {"an": 1}, {"from": 1}, {"when": 1}, {"en": 1}, {"i": 1}, {"about": 1}, {"will": 1}, {"la": 1}, {"de": 1}, {"where": 1}, {"for": 1}, {"www": 1}, {"with": 1}, {"to": 1}, {"that": 1}, {"this": 1}, {"und": 1}, {"on": 1}], "doc_len": 29}
+SELECT TOKENIZE(CONVERT('ＡＢＣ İ ß 数据库 😀 é' USING utf8mb4), 'ik', '[{"output":"all"}]') AS tokens;
+tokens
+{"tokens": [{"数据库": 1}, {"ａｂｃ": 1}, {"e": 1}], "doc_len": 3}
+SELECT TOKENIZE(CONVERT('THE thé ThE the WHERE whére with WÍTH alpha DATABASE café' USING binary), 'ik', '[{"output":"all"}]') AS tokens;
+ERROR 0A000: ik with the binary charset is not supported
+SELECT TOKENIZE(CONVERT('a an about com de en for from how i in is it la of on or that this to was what when where who will with und www' USING binary), 'ik', '[{"output":"all"}]') AS tokens;
+ERROR 0A000: ik with the binary charset is not supported
+SELECT TOKENIZE(CONVERT('ＡＢＣ İ ß 数据库 😀 é' USING binary), 'ik', '[{"output":"all"}]') AS tokens;
+ERROR 0A000: ik with the binary charset is not supported
+SELECT TOKENIZE('THE thé ThE the WHERE whére with WÍTH alpha DATABASE café' COLLATE utf8mb4_bin, 'space', '[{"output":"all"},{"additional_args":[{"min_token_size":1}]}]') AS tokens;
+tokens
+{"tokens": [{"alpha": 1}, {"database": 1}, {"café": 1}], "doc_len": 3}
+SELECT TOKENIZE('THE thé ThE the WHERE whére with WÍTH alpha DATABASE café' COLLATE utf8mb4_general_ci, 'space', '[{"output":"all"},{"additional_args":[{"min_token_size":1}]}]') AS tokens;
+tokens
+{"tokens": [{"café": 1}, {"database": 1}, {"alpha": 1}], "doc_len": 3}
+SELECT TOKENIZE('THE thé ThE the WHERE whére with WÍTH alpha DATABASE café' COLLATE utf8mb4_unicode_ci, 'space', '[{"output":"all"},{"additional_args":[{"min_token_size":1}]}]') AS tokens;
+tokens
+{"tokens": [{"database": 1}, {"café": 1}, {"alpha": 1}], "doc_len": 3}

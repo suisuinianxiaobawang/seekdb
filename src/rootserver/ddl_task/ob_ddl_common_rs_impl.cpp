@@ -40,6 +40,7 @@
 #include "sql/engine/px/ob_px_dtl_msg.h"
 #include "query/vector/ob_vector_index_util.h"
 #include "sql/resolver/ddl/ob_fts_index_builder_util.h"
+#include "data_plane/ob_order_perserving_encoder.h"
 #include "storage/tx/ob_ts_mgr.h"
 #include "storage/tablet/ob_tablet_binding_helper.h"
 #include "rootserver/ddl_task/ob_ddl_task.h"
@@ -439,6 +440,8 @@ int ObDDLTaskUtil::generate_build_replica_sql(const int64_t data_table_id,
     }
 
     // get dest table rowkey columns
+    bool encode_fts_sortkey = dest_table_schema->is_fts_index_aux()
+        || dest_table_schema->is_fts_doc_word_aux();
     if (OB_SUCC(ret)) {
       const ObRowkeyInfo &rowkey_info = dest_table_schema->get_rowkey_info();
       const ObRowkeyColumn *rowkey_column = nullptr;
@@ -458,6 +461,15 @@ int ObDDLTaskUtil::generate_build_replica_sql(const int64_t data_table_id,
           // generated columns cannot be row key.
         } else if (OB_FAIL(rowkey_column_names.push_back(ObColumnNameInfo(column_schema->get_column_name_str(), is_shadow_column)))) {
         } else if (OB_FAIL(order_column_ids.push_back(col_id))) {
+        }
+        if (OB_SUCC(ret) && encode_fts_sortkey) {
+          // FTS keys are variable-length tokens and binary document IDs. The
+          // encoder handles VARCHAR too; retain the old sort for other types
+          // or collations instead of forcing an unsupported encoding.
+          const ObObjType type = column_schema->get_data_type();
+          encode_fts_sortkey = share::ObOrderPerservingEncoder::can_encode_sortkey(
+              type == ObVarcharType ? ObCharType : type,
+              column_schema->get_collation_type());
         }
       }
     }
@@ -529,13 +541,19 @@ int ObDDLTaskUtil::generate_build_replica_sql(const int64_t data_table_id,
           }
         }
         const char *io_read_hint = " ";
+        // These scans expand each source LOB into many short posting rows.
+        // A LOB-sized rowset defeats both posting batches and batched sorting.
+        // Keep this bounded policy local to the two FTS posting-table builds.
+        const char *fts_rowset_hint = (dest_table_schema->is_fts_index_aux()
+            || dest_table_schema->is_fts_doc_word_aux())
+            ? "opt_param('rowsets_max_rows', 256)" : "";
         if (dest_table_schema->is_vec_vid_rowkey_type()) {
           src_table_schema_version_hint_sql_string.reset();
         }
         if (OB_FAIL(ret)) {
         } else {
-          if (OB_FAIL(sql_string.assign_fmt("INSERT /*+ enable_parallel_dml parallel(%ld) opt_param('ddl_execution_id', %ld) opt_param('ddl_task_id', %ld) opt_param('enable_newsort', 'false') %.*s use_px */INTO `%.*s`.`%.*s` %.*s(%.*s) SELECT /*+ index(`%.*s` primary) %.*s */ %.*s from `%.*s`.`%.*s` %.*s as of snapshot %ld %.*s",
-              real_parallelism, execution_id, task_id,
+          if (OB_FAIL(sql_string.assign_fmt("INSERT /*+ enable_parallel_dml parallel(%ld) opt_param('ddl_execution_id', %ld) opt_param('ddl_task_id', %ld) opt_param('enable_newsort', '%s') %s %.*s use_px */INTO `%.*s`.`%.*s` %.*s(%.*s) SELECT /*+ index(`%.*s` primary) %.*s */ %.*s from `%.*s`.`%.*s` %.*s as of snapshot %ld %.*s",
+              real_parallelism, execution_id, task_id, encode_fts_sortkey ? "true" : "false", fts_rowset_hint,
               static_cast<int>(strlen(io_read_hint)), io_read_hint,
               static_cast<int>(new_dest_database_name.length()), new_dest_database_name.ptr(), static_cast<int>(new_dest_table_name.length()), new_dest_table_name.ptr(),
               static_cast<int>(partition_names.length()), partition_names.ptr(),

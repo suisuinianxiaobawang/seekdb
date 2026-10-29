@@ -1,0 +1,200 @@
+SET NAMES utf8mb4;
+SET ob_query_timeout=100000000;
+DROP DATABASE IF EXISTS fts_count_limit_order;
+CREATE DATABASE fts_count_limit_order;
+USE fts_count_limit_order;
+CREATE TABLE digits(n INT PRIMARY KEY);
+INSERT INTO digits VALUES(0),(1),(2),(3),(4),(5),(6),(7),(8),(9);
+CREATE TABLE docs(id BIGINT PRIMARY KEY,g INT,body TEXT);
+INSERT INTO docs SELECT a.n+10*b.n+100*c.n,IF(MOD(a.n+10*b.n+100*c.n,3)=0,NULL,MOD(a.n,4)),CONCAT(REPEAT('alpha ',1+MOD(a.n+10*b.n+100*c.n,8)),IF(MOD(a.n,2)=0,'bravo charlie','delta')) FROM digits a,digits b,digits c WHERE a.n+10*b.n+100*c.n<307;
+INSERT INTO docs VALUES(1000,NULL,NULL),(1001,NULL,''),(1002,4,'unrelated');
+ALTER TABLE docs ADD FULLTEXT INDEX ft(body) WITH PARSER beng;
+SELECT COUNT(*) AS hits FROM (SELECT id FROM docs WHERE MATCH(body) AGAINST('alpha bravo') LIMIT 0 OFFSET 0) s;
+hits
+0
+SELECT COUNT(*) AS hits FROM (SELECT id FROM docs WHERE MATCH(body) AGAINST('alpha bravo') LIMIT 1 OFFSET 0) s;
+hits
+1
+SELECT COUNT(*) AS hits FROM (SELECT id FROM docs WHERE MATCH(body) AGAINST('alpha bravo') LIMIT 20 OFFSET 0) s;
+hits
+20
+SELECT COUNT(*) AS hits FROM (SELECT id FROM docs WHERE MATCH(body) AGAINST('alpha bravo') LIMIT 255 OFFSET 1) s;
+hits
+255
+SELECT COUNT(*) AS hits FROM (SELECT id FROM docs WHERE MATCH(body) AGAINST('alpha bravo') LIMIT 256 OFFSET 0) s;
+hits
+256
+SELECT COUNT(*) AS hits FROM (SELECT id FROM docs WHERE MATCH(body) AGAINST('alpha bravo') LIMIT 257 OFFSET 0) s;
+hits
+257
+SELECT COUNT(*) AS hits FROM (SELECT id FROM docs WHERE MATCH(body) AGAINST('alpha bravo') LIMIT 999 OFFSET 0) s;
+hits
+307
+SELECT COUNT(*) AS hits FROM (SELECT id FROM docs WHERE MATCH(body) AGAINST('alpha bravo') LIMIT 20 OFFSET 300) s;
+hits
+7
+SELECT COUNT(*) AS hits FROM (SELECT id FROM docs WHERE MATCH(body) AGAINST('alpha bravo') LIMIT 20 OFFSET 999) s;
+hits
+0
+SELECT COUNT(*) AS hits FROM (SELECT id FROM docs WHERE MATCH(body) AGAINST('missingzxqv') LIMIT 0 OFFSET 0) s;
+hits
+0
+SELECT COUNT(*) AS hits FROM (SELECT id FROM docs WHERE MATCH(body) AGAINST('missingzxqv') LIMIT 1 OFFSET 0) s;
+hits
+0
+SELECT COUNT(*) AS hits FROM (SELECT id FROM docs WHERE MATCH(body) AGAINST('missingzxqv') LIMIT 20 OFFSET 0) s;
+hits
+0
+SELECT COUNT(*) AS hits FROM (SELECT id FROM docs WHERE MATCH(body) AGAINST('missingzxqv') LIMIT 255 OFFSET 1) s;
+hits
+0
+SELECT COUNT(*) AS hits FROM (SELECT id FROM docs WHERE MATCH(body) AGAINST('missingzxqv') LIMIT 256 OFFSET 0) s;
+hits
+0
+SELECT COUNT(*) AS hits FROM (SELECT id FROM docs WHERE MATCH(body) AGAINST('missingzxqv') LIMIT 257 OFFSET 0) s;
+hits
+0
+SELECT COUNT(*) AS hits FROM (SELECT id FROM docs WHERE MATCH(body) AGAINST('missingzxqv') LIMIT 999 OFFSET 0) s;
+hits
+0
+SELECT COUNT(*) AS hits FROM (SELECT id FROM docs WHERE MATCH(body) AGAINST('missingzxqv') LIMIT 20 OFFSET 300) s;
+hits
+0
+SELECT COUNT(*) AS hits FROM (SELECT id FROM docs WHERE MATCH(body) AGAINST('missingzxqv') LIMIT 20 OFFSET 999) s;
+hits
+0
+SELECT COUNT(*) AS hits FROM (SELECT id FROM docs WHERE MATCH(body) AGAINST('') LIMIT 0 OFFSET 0) s;
+hits
+0
+SELECT COUNT(*) AS hits FROM (SELECT id FROM docs WHERE MATCH(body) AGAINST('') LIMIT 1 OFFSET 0) s;
+hits
+0
+SELECT COUNT(*) AS hits FROM (SELECT id FROM docs WHERE MATCH(body) AGAINST('') LIMIT 20 OFFSET 0) s;
+hits
+0
+SELECT COUNT(*) AS hits FROM (SELECT id FROM docs WHERE MATCH(body) AGAINST('') LIMIT 255 OFFSET 1) s;
+hits
+0
+SELECT COUNT(*) AS hits FROM (SELECT id FROM docs WHERE MATCH(body) AGAINST('') LIMIT 256 OFFSET 0) s;
+hits
+0
+SELECT COUNT(*) AS hits FROM (SELECT id FROM docs WHERE MATCH(body) AGAINST('') LIMIT 257 OFFSET 0) s;
+hits
+0
+SELECT COUNT(*) AS hits FROM (SELECT id FROM docs WHERE MATCH(body) AGAINST('') LIMIT 999 OFFSET 0) s;
+hits
+0
+SELECT COUNT(*) AS hits FROM (SELECT id FROM docs WHERE MATCH(body) AGAINST('') LIMIT 20 OFFSET 300) s;
+hits
+0
+SELECT COUNT(*) AS hits FROM (SELECT id FROM docs WHERE MATCH(body) AGAINST('') LIMIT 20 OFFSET 999) s;
+hits
+0
+SELECT COUNT(*) AS hits,COUNT(*)+1 AS next_hits FROM (SELECT id FROM docs WHERE MATCH(body) AGAINST('alpha bravo') ORDER BY id DESC LIMIT 20) s HAVING COUNT(*)>=0;
+hits	next_hits
+20	21
+SELECT COUNT(*) AS hits,COUNT(*)+1 AS next_hits FROM (SELECT id FROM docs WHERE MATCH(body) AGAINST('alpha bravo') AND g IS NOT NULL LIMIT 20) s HAVING COUNT(*)>=0;
+hits	next_hits
+20	21
+SELECT COUNT(*) AS hits,COUNT(*)+1 AS next_hits FROM (SELECT id FROM docs ORDER BY id DESC LIMIT 20 OFFSET 300) s HAVING COUNT(*)>=0;
+hits	next_hits
+10	11
+SELECT COUNT(*) AS hits,COUNT(*)+1 AS next_hits FROM (SELECT id FROM docs ORDER BY g,id DESC LIMIT 20 OFFSET 300) s HAVING COUNT(*)>=0;
+hits	next_hits
+10	11
+SELECT COUNT(*) AS hits,COUNT(*)+1 AS next_hits FROM (SELECT DISTINCT g FROM docs ORDER BY g LIMIT 2) s HAVING COUNT(*)>=0;
+hits	next_hits
+2	3
+SELECT COUNT(*) AS hits,COUNT(*)+1 AS next_hits FROM (SELECT g,COUNT(*) AS n FROM docs GROUP BY g ORDER BY n,g LIMIT 3) s HAVING COUNT(*)>=0;
+hits	next_hits
+3	4
+SELECT COUNT(*) AS hits,COUNT(*)+1 AS next_hits FROM (SELECT id FROM docs WHERE id<0 ORDER BY id LIMIT 2) s HAVING COUNT(*)>=0;
+hits	next_hits
+0	1
+SELECT COUNT(g) FROM (SELECT id,g FROM docs WHERE MATCH(body) AGAINST('alpha bravo') ORDER BY id DESC LIMIT 20) s;
+COUNT(g)
+13
+SELECT COUNT(DISTINCT g) FROM (SELECT id,g FROM docs WHERE MATCH(body) AGAINST('alpha bravo') ORDER BY id DESC LIMIT 20) s;
+COUNT(DISTINCT g)
+4
+SELECT SUM(id) FROM (SELECT id,g FROM docs WHERE MATCH(body) AGAINST('alpha bravo') ORDER BY id DESC LIMIT 20) s;
+SUM(id)
+5930
+SELECT MIN(id),MAX(id) FROM (SELECT id,g FROM docs WHERE MATCH(body) AGAINST('alpha bravo') ORDER BY id DESC LIMIT 20) s;
+MIN(id)	MAX(id)
+287	306
+SELECT COUNT(*),SUM(id) FROM (SELECT id,g FROM docs WHERE MATCH(body) AGAINST('alpha bravo') ORDER BY id DESC LIMIT 20) s;
+COUNT(*)	SUM(id)
+20	5930
+SELECT g,COUNT(*) FROM (SELECT id,g FROM docs WHERE MATCH(body) AGAINST('alpha bravo') ORDER BY id DESC LIMIT 20) s GROUP BY g ORDER BY g;
+g	COUNT(*)
+NULL	7
+0	3
+1	5
+2	3
+3	2
+SELECT COUNT(*) FROM (SELECT id FROM docs WHERE MATCH(body) AGAINST('alpha bravo') ORDER BY id DESC LIMIT 20) s WHERE id>290;
+COUNT(*)
+16
+SELECT id,ROUND(MATCH(body) AGAINST('alpha bravo'),8) AS score FROM docs WHERE MATCH(body) AGAINST('alpha bravo') ORDER BY score DESC,id LIMIT 8;
+id	score
+2	0.75428571
+10	0.75428571
+18	0.75428571
+26	0.75428571
+34	0.75428571
+42	0.75428571
+50	0.75428571
+58	0.75428571
+SELECT id FROM (SELECT id FROM docs WHERE MATCH(body) AGAINST('alpha bravo') ORDER BY id DESC LIMIT 8) s ORDER BY id;
+id
+299
+300
+301
+302
+303
+304
+305
+306
+SELECT COUNT(*) OVER(),id FROM (SELECT id FROM docs WHERE MATCH(body) AGAINST('alpha bravo') ORDER BY id DESC LIMIT 3) s ORDER BY id;
+COUNT(*) OVER()	id
+3	304
+3	305
+3	306
+PREPARE ps FROM 'SELECT COUNT(*) FROM (SELECT id FROM docs WHERE MATCH(body) AGAINST(?) LIMIT ? OFFSET ?) s';
+SET @term='alpha bravo',@lim=20,@off=0;
+EXECUTE ps USING @term,@lim,@off;
+COUNT(*)
+20
+SET @term='alpha bravo',@lim=20,@off=300;
+EXECUTE ps USING @term,@lim,@off;
+COUNT(*)
+7
+SET @term='missingzxqv',@lim=20,@off=0;
+EXECUTE ps USING @term,@lim,@off;
+COUNT(*)
+0
+SET @term='alpha bravo',@lim=0,@off=0;
+EXECUTE ps USING @term,@lim,@off;
+COUNT(*)
+0
+SET @term='alpha bravo',@lim=999,@off=0;
+EXECUTE ps USING @term,@lim,@off;
+COUNT(*)
+307
+SET @term='alpha bravo',@lim=9223372036854775807,@off=0;
+EXECUTE ps USING @term,@lim,@off;
+ERROR HY000: Invalid argument
+SET @lim=20,@off=0;
+EXECUTE ps USING @term,@lim,@off;
+COUNT(*)
+20
+SET @lim=9223372036854775807,@off=10000;
+EXECUTE ps USING @term,@lim,@off;
+ERROR HY000: Invalid argument
+SET @lim=1,@off=0;
+EXECUTE ps USING @term,@lim,@off;
+COUNT(*)
+1
+DEALLOCATE PREPARE ps;
+DROP DATABASE fts_count_limit_order;

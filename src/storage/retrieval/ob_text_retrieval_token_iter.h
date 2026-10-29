@@ -134,6 +134,9 @@ public:
   virtual int get_curr_id(const ObDatum *&id_datum) const override;
 public:
   int get_token_doc_cnt(int64_t &token_doc_cnt) const { return token_iter_->get_token_doc_cnt(token_doc_cnt); }
+  // The returned span belongs to this dimension and stays valid until refill.
+  int get_docid_batch(const ObDocIdExt *&ids, int64_t &count);
+  void consume_docids(int64_t count) { cur_idx_ += count; }
   virtual int get_dim_max_score(double &score) override {
     int ret = OB_SUCCESS;
     score = token_iter_->get_max_token_relevance();
@@ -156,6 +159,7 @@ private:
   ObFixedArray<double, ObIAllocator> relevance_; // when ~ObFixedArray(), wikll destory itself
   ObFixedArray<ObDocIdExt, ObIAllocator> doc_id_;
   common::ObDatumCmpFuncType cmp_func_;
+  bool id_batch_end_;
   bool is_inited_;
   DISALLOW_COPY_AND_ASSIGN(ObTextRetrievalDaaTTokenIter);
 };

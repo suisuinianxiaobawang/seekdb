@@ -1,0 +1,181 @@
+SET NAMES utf8mb4;
+SELECT TOKENIZE('alpha beta gamma delta epsilon zeta eta theta iota kappa' COLLATE utf8mb4_bin,'ik','[{"output":"all"},{"additional_args":[{"ik_mode":"smart"}]}]') AS tokens;
+tokens
+{"tokens": [{"beta": 1}, {"alpha": 1}, {"iota": 1}, {"eta": 1}, {"theta": 1}, {"zeta": 1}, {"delta": 1}, {"epsilon": 1}, {"kappa": 1}, {"gamma": 1}], "doc_len": 10}
+SELECT TOKENIZE('研究生命起源 南京市长江大桥 中华人民共和国人民大会堂' COLLATE utf8mb4_bin,'ik','[{"output":"all"},{"additional_args":[{"ik_mode":"smart"}]}]') AS tokens;
+tokens
+{"tokens": [{"生命": 1}, {"中华人民共和国": 1}, {"长江大桥": 1}, {"起源": 1}, {"人民大会堂": 1}, {"南京市": 1}, {"研究": 1}], "doc_len": 7}
+SELECT TOKENIZE('一公斤一平方米两个廿世纪一世纪12小时' COLLATE utf8mb4_bin,'ik','[{"output":"all"},{"additional_args":[{"ik_mode":"smart"}]}]') AS tokens;
+tokens
+{"tokens": [{"一世纪": 1}, {"12小时": 1}, {"一公斤": 1}, {"廿世纪": 1}, {"一平方米": 1}, {"两个": 1}], "doc_len": 6}
+SELECT TOKENIZE('南京市,长江大桥。alpha-beta _C++ 中华人民共和国' COLLATE utf8mb4_bin,'ik','[{"output":"all"},{"additional_args":[{"ik_mode":"smart"}]}]') AS tokens;
+tokens
+{"tokens": [{"c++": 1}, {"中华人民共和国": 1}, {"长江大桥": 1}, {"南京市": 1}, {"alpha-beta": 1}], "doc_len": 5}
+SELECT TOKENIZE('😀𠀀漢かな한글éÉßİａｂＣ' COLLATE utf8mb4_bin,'ik','[{"output":"all"},{"additional_args":[{"ik_mode":"smart"}]}]') AS tokens;
+tokens
+{"tokens": [{"ａｂｃ": 1}, {"한": 1}, {"漢": 1}, {"글": 1}, {"な": 1}, {"か": 1}], "doc_len": 6}
+SELECT TOKENIZE(CONVERT(CONCAT('数据库',CHAR(0),'alpha 全文索引') USING utf8mb4) COLLATE utf8mb4_bin,'ik','[{"output":"all"},{"additional_args":[{"ik_mode":"smart"}]}]') AS tokens;
+tokens
+{"tokens": [{"alpha": 1}, {"全文索引": 1}, {"数据库": 1}], "doc_len": 3}
+SELECT TOKENIZE('...   ' COLLATE utf8mb4_bin,'ik','[{"output":"all"},{"additional_args":[{"ik_mode":"smart"}]}]') AS tokens;
+tokens
+{"tokens": [], "doc_len": 0}
+SELECT TOKENIZE(REPEAT('alpha beta 数据库全文索引 南京市长江大桥 ',70) COLLATE utf8mb4_bin,'ik','[{"output":"all"},{"additional_args":[{"ik_mode":"smart"}]}]') AS tokens;
+tokens
+{"tokens": [{"引": 70}, {"据": 70}, {"全文索引": 70}, {"数据库": 70}, {"市": 70}, {"全": 70}, {"桥": 70}, {"江": 70}, {"京": 70}, {"alpha": 70}, {"索": 70}, {"长": 70}, {"南京市": 70}, {"长江大桥": 70}, {"大": 70}, {"库": 70}, {"文": 70}, {"beta": 70}, {"南": 70}, {"数": 70}], "doc_len": 1400}
+SELECT TOKENIZE(REPEAT('中华人民共和国人民大会堂一公斤',100) COLLATE utf8mb4_bin,'ik','[{"output":"all"},{"additional_args":[{"ik_mode":"smart"}]}]') AS tokens;
+tokens
+{"tokens": [{"一公斤": 100}, {"中华人民共和国": 100}, {"人民大会堂": 100}], "doc_len": 300}
+SELECT TOKENIZE(CONCAT(REPEAT('甲',1001),' alpha 数据库 ',REPEAT('南京市长江大桥 ',101)) COLLATE utf8mb4_bin,'ik','[{"output":"all"},{"additional_args":[{"ik_mode":"smart"}]}]') AS tokens;
+tokens
+{"tokens": [{"据": 1}, {"数据库": 1}, {"市": 101}, {"桥": 101}, {"江": 101}, {"京": 101}, {"alpha": 1}, {"长": 101}, {"甲": 2002}, {"南京市": 101}, {"长江大桥": 101}, {"大": 101}, {"库": 1}, {"南": 101}, {"数": 1}], "doc_len": 2916}
+SELECT TOKENIZE('alpha beta gamma delta epsilon zeta eta theta iota kappa' COLLATE utf8mb4_general_ci,'ik','[{"output":"all"},{"additional_args":[{"ik_mode":"smart"}]}]') AS tokens;
+tokens
+{"tokens": [{"delta": 1}, {"gamma": 1}, {"zeta": 1}, {"kappa": 1}, {"alpha": 1}, {"epsilon": 1}, {"iota": 1}, {"theta": 1}, {"eta": 1}, {"beta": 1}], "doc_len": 10}
+SELECT TOKENIZE('研究生命起源 南京市长江大桥 中华人民共和国人民大会堂' COLLATE utf8mb4_general_ci,'ik','[{"output":"all"},{"additional_args":[{"ik_mode":"smart"}]}]') AS tokens;
+tokens
+{"tokens": [{"长江大桥": 1}, {"人民大会堂": 1}, {"研究": 1}, {"起源": 1}, {"南京市": 1}, {"中华人民共和国": 1}, {"生命": 1}], "doc_len": 7}
+SELECT TOKENIZE('一公斤一平方米两个廿世纪一世纪12小时' COLLATE utf8mb4_general_ci,'ik','[{"output":"all"},{"additional_args":[{"ik_mode":"smart"}]}]') AS tokens;
+tokens
+{"tokens": [{"一世纪": 1}, {"两个": 1}, {"一公斤": 1}, {"12小时": 1}, {"一平方米": 1}, {"廿世纪": 1}], "doc_len": 6}
+SELECT TOKENIZE('南京市,长江大桥。alpha-beta _C++ 中华人民共和国' COLLATE utf8mb4_general_ci,'ik','[{"output":"all"},{"additional_args":[{"ik_mode":"smart"}]}]') AS tokens;
+tokens
+{"tokens": [{"长江大桥": 1}, {"南京市": 1}, {"中华人民共和国": 1}, {"c++": 1}, {"alpha-beta": 1}], "doc_len": 5}
+SELECT TOKENIZE('😀𠀀漢かな한글éÉßİａｂＣ' COLLATE utf8mb4_general_ci,'ik','[{"output":"all"},{"additional_args":[{"ik_mode":"smart"}]}]') AS tokens;
+tokens
+{"tokens": [{"な": 1}, {"한": 1}, {"글": 1}, {"か": 1}, {"ａｂｃ": 1}, {"漢": 1}], "doc_len": 6}
+SELECT TOKENIZE(CONVERT(CONCAT('数据库',CHAR(0),'alpha 全文索引') USING utf8mb4) COLLATE utf8mb4_general_ci,'ik','[{"output":"all"},{"additional_args":[{"ik_mode":"smart"}]}]') AS tokens;
+tokens
+{"tokens": [{"alpha": 1}, {"数据库": 1}, {"全文索引": 1}], "doc_len": 3}
+SELECT TOKENIZE('...   ' COLLATE utf8mb4_general_ci,'ik','[{"output":"all"},{"additional_args":[{"ik_mode":"smart"}]}]') AS tokens;
+tokens
+{"tokens": [], "doc_len": 0}
+SELECT TOKENIZE(REPEAT('alpha beta 数据库全文索引 南京市长江大桥 ',70) COLLATE utf8mb4_general_ci,'ik','[{"output":"all"},{"additional_args":[{"ik_mode":"smart"}]}]') AS tokens;
+tokens
+{"tokens": [{"据": 70}, {"市": 70}, {"alpha": 70}, {"桥": 70}, {"长江大桥": 70}, {"南京市": 70}, {"全文索引": 70}, {"全": 70}, {"长": 70}, {"引": 70}, {"江": 70}, {"数据库": 70}, {"索": 70}, {"文": 70}, {"南": 70}, {"库": 70}, {"京": 70}, {"大": 70}, {"数": 70}, {"beta": 70}], "doc_len": 1400}
+SELECT TOKENIZE(REPEAT('中华人民共和国人民大会堂一公斤',100) COLLATE utf8mb4_general_ci,'ik','[{"output":"all"},{"additional_args":[{"ik_mode":"smart"}]}]') AS tokens;
+tokens
+{"tokens": [{"人民大会堂": 100}, {"中华人民共和国": 100}, {"一公斤": 100}], "doc_len": 300}
+SELECT TOKENIZE(CONCAT(REPEAT('甲',1001),' alpha 数据库 ',REPEAT('南京市长江大桥 ',101)) COLLATE utf8mb4_general_ci,'ik','[{"output":"all"},{"additional_args":[{"ik_mode":"smart"}]}]') AS tokens;
+tokens
+{"tokens": [{"据": 1}, {"甲": 2002}, {"市": 101}, {"alpha": 1}, {"桥": 101}, {"长江大桥": 101}, {"南京市": 101}, {"长": 101}, {"江": 101}, {"数据库": 1}, {"南": 101}, {"库": 1}, {"京": 101}, {"大": 101}, {"数": 1}], "doc_len": 2916}
+SELECT TOKENIZE('alpha beta gamma delta epsilon zeta eta theta iota kappa' COLLATE utf8mb4_unicode_ci,'ik','[{"output":"all"},{"additional_args":[{"ik_mode":"smart"}]}]') AS tokens;
+tokens
+{"tokens": [{"delta": 1}, {"eta": 1}, {"kappa": 1}, {"alpha": 1}, {"iota": 1}, {"gamma": 1}, {"beta": 1}, {"epsilon": 1}, {"theta": 1}, {"zeta": 1}], "doc_len": 10}
+SELECT TOKENIZE('研究生命起源 南京市长江大桥 中华人民共和国人民大会堂' COLLATE utf8mb4_unicode_ci,'ik','[{"output":"all"},{"additional_args":[{"ik_mode":"smart"}]}]') AS tokens;
+tokens
+{"tokens": [{"生命": 1}, {"人民大会堂": 1}, {"长江大桥": 1}, {"起源": 1}, {"南京市": 1}, {"中华人民共和国": 1}, {"研究": 1}], "doc_len": 7}
+SELECT TOKENIZE('一公斤一平方米两个廿世纪一世纪12小时' COLLATE utf8mb4_unicode_ci,'ik','[{"output":"all"},{"additional_args":[{"ik_mode":"smart"}]}]') AS tokens;
+tokens
+{"tokens": [{"一平方米": 1}, {"两个": 1}, {"一世纪": 1}, {"12小时": 1}, {"廿世纪": 1}, {"一公斤": 1}], "doc_len": 6}
+SELECT TOKENIZE('南京市,长江大桥。alpha-beta _C++ 中华人民共和国' COLLATE utf8mb4_unicode_ci,'ik','[{"output":"all"},{"additional_args":[{"ik_mode":"smart"}]}]') AS tokens;
+tokens
+{"tokens": [{"alpha-beta": 1}, {"长江大桥": 1}, {"南京市": 1}, {"c++": 1}, {"中华人民共和国": 1}], "doc_len": 5}
+SELECT TOKENIZE('😀𠀀漢かな한글éÉßİａｂＣ' COLLATE utf8mb4_unicode_ci,'ik','[{"output":"all"},{"additional_args":[{"ik_mode":"smart"}]}]') AS tokens;
+tokens
+{"tokens": [{"ａｂｃ": 1}, {"か": 1}, {"な": 1}, {"漢": 1}, {"글": 1}, {"한": 1}], "doc_len": 6}
+SELECT TOKENIZE(CONVERT(CONCAT('数据库',CHAR(0),'alpha 全文索引') USING utf8mb4) COLLATE utf8mb4_unicode_ci,'ik','[{"output":"all"},{"additional_args":[{"ik_mode":"smart"}]}]') AS tokens;
+tokens
+{"tokens": [{"alpha": 1}, {"数据库": 1}, {"全文索引": 1}], "doc_len": 3}
+SELECT TOKENIZE('...   ' COLLATE utf8mb4_unicode_ci,'ik','[{"output":"all"},{"additional_args":[{"ik_mode":"smart"}]}]') AS tokens;
+tokens
+{"tokens": [], "doc_len": 0}
+SELECT TOKENIZE(REPEAT('alpha beta 数据库全文索引 南京市长江大桥 ',70) COLLATE utf8mb4_unicode_ci,'ik','[{"output":"all"},{"additional_args":[{"ik_mode":"smart"}]}]') AS tokens;
+tokens
+{"tokens": [{"南京市": 70}, {"长": 70}, {"引": 70}, {"索": 70}, {"京": 70}, {"beta": 70}, {"大": 70}, {"数": 70}, {"市": 70}, {"库": 70}, {"全文索引": 70}, {"桥": 70}, {"数据库": 70}, {"江": 70}, {"据": 70}, {"alpha": 70}, {"长江大桥": 70}, {"南": 70}, {"全": 70}, {"文": 70}], "doc_len": 1400}
+SELECT TOKENIZE(REPEAT('中华人民共和国人民大会堂一公斤',100) COLLATE utf8mb4_unicode_ci,'ik','[{"output":"all"},{"additional_args":[{"ik_mode":"smart"}]}]') AS tokens;
+tokens
+{"tokens": [{"一公斤": 100}, {"人民大会堂": 100}, {"中华人民共和国": 100}], "doc_len": 300}
+SELECT TOKENIZE(CONCAT(REPEAT('甲',1001),' alpha 数据库 ',REPEAT('南京市长江大桥 ',101)) COLLATE utf8mb4_unicode_ci,'ik','[{"output":"all"},{"additional_args":[{"ik_mode":"smart"}]}]') AS tokens;
+tokens
+{"tokens": [{"南京市": 101}, {"长": 101}, {"京": 101}, {"大": 101}, {"数": 1}, {"市": 101}, {"库": 1}, {"桥": 101}, {"数据库": 1}, {"江": 101}, {"据": 1}, {"alpha": 1}, {"甲": 2002}, {"长江大桥": 101}, {"南": 101}], "doc_len": 2916}
+SELECT TOKENIZE('alpha beta gamma delta epsilon zeta eta theta iota kappa' COLLATE utf8mb4_bin,'ik','[{"output":"all"},{"additional_args":[{"ik_mode":"max_word"}]}]') AS tokens;
+tokens
+{"tokens": [{"beta": 1}, {"alpha": 1}, {"iota": 1}, {"eta": 1}, {"theta": 1}, {"zeta": 1}, {"delta": 1}, {"epsilon": 1}, {"kappa": 1}, {"gamma": 1}], "doc_len": 10}
+SELECT TOKENIZE('研究生命起源 南京市长江大桥 中华人民共和国人民大会堂' COLLATE utf8mb4_bin,'ik','[{"output":"all"},{"additional_args":[{"ik_mode":"max_word"}]}]') AS tokens;
+tokens
+{"tokens": [{"长江": 1}, {"生命": 1}, {"会堂": 1}, {"市长": 1}, {"人民": 2}, {"人民共和国": 1}, {"大会": 1}, {"南京": 1}, {"中华人民共和国": 1}, {"中华": 1}, {"国人": 1}, {"中华人民": 1}, {"长江大桥": 1}, {"共和": 1}, {"起源": 1}, {"人民大会堂": 1}, {"大桥": 1}, {"南京市": 1}, {"共和国": 1}, {"大会堂": 1}, {"研究": 1}, {"人民大会": 1}, {"华人": 1}, {"研究生": 1}], "doc_len": 25}
+SELECT TOKENIZE('一公斤一平方米两个廿世纪一世纪12小时' COLLATE utf8mb4_bin,'ik','[{"output":"all"},{"additional_args":[{"ik_mode":"max_word"}]}]') AS tokens;
+tokens
+{"tokens": [{"一世纪": 1}, {"平方": 1}, {"方": 1}, {"廿": 1}, {"12": 1}, {"世纪": 2}, {"平方米": 1}, {"一世": 1}, {"斤": 1}, {"米": 1}, {"世": 2}, {"两": 1}, {"时": 1}, {"公斤": 1}, {"纪": 2}, {"个": 1}, {"一": 3}, {"小时": 1}, {"两个": 1}], "doc_len": 24}
+SELECT TOKENIZE('南京市,长江大桥。alpha-beta _C++ 中华人民共和国' COLLATE utf8mb4_bin,'ik','[{"output":"all"},{"additional_args":[{"ik_mode":"max_word"}]}]') AS tokens;
+tokens
+{"tokens": [{"长江": 1}, {"beta": 1}, {"人民": 1}, {"人民共和国": 1}, {"alpha": 1}, {"南京": 1}, {"c++": 1}, {"中华人民共和国": 1}, {"中华": 1}, {"中华人民": 1}, {"长江大桥": 1}, {"共和": 1}, {"大桥": 1}, {"南京市": 1}, {"c": 1}, {"共和国": 1}, {"国": 1}, {"市": 1}, {"alpha-beta": 1}, {"华人": 1}], "doc_len": 20}
+SELECT TOKENIZE('😀𠀀漢かな한글éÉßİａｂＣ' COLLATE utf8mb4_bin,'ik','[{"output":"all"},{"additional_args":[{"ik_mode":"max_word"}]}]') AS tokens;
+tokens
+{"tokens": [{"ａｂｃ": 1}, {"한": 1}, {"漢": 1}, {"글": 1}, {"な": 1}, {"か": 1}], "doc_len": 6}
+SELECT TOKENIZE(CONVERT(CONCAT('数据库',CHAR(0),'alpha 全文索引') USING utf8mb4) COLLATE utf8mb4_bin,'ik','[{"output":"all"},{"additional_args":[{"ik_mode":"max_word"}]}]') AS tokens;
+tokens
+{"tokens": [{"数据": 1}, {"全文": 1}, {"alpha": 1}, {"全文索引": 1}, {"库": 1}, {"数据库": 1}, {"索引": 1}], "doc_len": 7}
+SELECT TOKENIZE('...   ' COLLATE utf8mb4_bin,'ik','[{"output":"all"},{"additional_args":[{"ik_mode":"max_word"}]}]') AS tokens;
+tokens
+{"tokens": [], "doc_len": 0}
+SELECT TOKENIZE(REPEAT('alpha beta 数据库全文索引 南京市长江大桥 ',70) COLLATE utf8mb4_bin,'ik','[{"output":"all"},{"additional_args":[{"ik_mode":"max_word"}]}]') AS tokens;
+tokens
+{"tokens": [{"长江": 70}, {"引": 70}, {"索引": 70}, {"据": 70}, {"大桥": 70}, {"全文索引": 70}, {"南京": 70}, {"数据库": 70}, {"市": 70}, {"全": 70}, {"桥": 70}, {"全文": 70}, {"江": 70}, {"京": 70}, {"alpha": 70}, {"索": 70}, {"长": 70}, {"南京市": 70}, {"长江大桥": 70}, {"大": 70}, {"数据": 70}, {"库": 140}, {"文": 70}, {"beta": 70}, {"南": 70}, {"市长": 70}, {"数": 70}], "doc_len": 1960}
+SELECT TOKENIZE(REPEAT('中华人民共和国人民大会堂一公斤',100) COLLATE utf8mb4_bin,'ik','[{"output":"all"},{"additional_args":[{"ik_mode":"max_word"}]}]') AS tokens;
+tokens
+{"tokens": [{"公斤": 100}, {"华人": 100}, {"会堂": 100}, {"大会堂": 100}, {"人民共和国": 100}, {"大会": 100}, {"人民大会": 100}, {"中": 99}, {"一": 100}, {"国人": 100}, {"斤": 100}, {"共和": 100}, {"共和国": 100}, {"中华": 100}, {"人民": 200}, {"中华人民": 100}, {"中华人民共和国": 100}, {"人民大会堂": 100}], "doc_len": 1899}
+SELECT TOKENIZE(CONCAT(REPEAT('甲',1001),' alpha 数据库 ',REPEAT('南京市长江大桥 ',101)) COLLATE utf8mb4_bin,'ik','[{"output":"all"},{"additional_args":[{"ik_mode":"max_word"}]}]') AS tokens;
+tokens
+{"tokens": [{"长江": 101}, {"据": 1}, {"大桥": 101}, {"南京": 101}, {"数据库": 1}, {"市": 101}, {"桥": 101}, {"江": 101}, {"京": 101}, {"alpha": 1}, {"长": 101}, {"甲": 2002}, {"南京市": 101}, {"长江大桥": 101}, {"大": 101}, {"数据": 1}, {"库": 2}, {"南": 101}, {"市长": 101}, {"数": 1}], "doc_len": 3322}
+SELECT TOKENIZE('alpha beta gamma delta epsilon zeta eta theta iota kappa' COLLATE utf8mb4_general_ci,'ik','[{"output":"all"},{"additional_args":[{"ik_mode":"max_word"}]}]') AS tokens;
+tokens
+{"tokens": [{"delta": 1}, {"gamma": 1}, {"zeta": 1}, {"kappa": 1}, {"alpha": 1}, {"epsilon": 1}, {"iota": 1}, {"theta": 1}, {"eta": 1}, {"beta": 1}], "doc_len": 10}
+SELECT TOKENIZE('研究生命起源 南京市长江大桥 中华人民共和国人民大会堂' COLLATE utf8mb4_general_ci,'ik','[{"output":"all"},{"additional_args":[{"ik_mode":"max_word"}]}]') AS tokens;
+tokens
+{"tokens": [{"长江大桥": 1}, {"大会": 1}, {"人民大会堂": 1}, {"大会堂": 1}, {"共和国": 1}, {"市长": 1}, {"研究生": 1}, {"人民大会": 1}, {"人民共和国": 1}, {"研究": 1}, {"起源": 1}, {"中华人民": 1}, {"南京市": 1}, {"共和": 1}, {"南京": 1}, {"会堂": 1}, {"中华": 1}, {"中华人民共和国": 1}, {"生命": 1}, {"长江": 1}, {"国人": 1}, {"华人": 1}, {"人民": 2}, {"大桥": 1}], "doc_len": 25}
+SELECT TOKENIZE('一公斤一平方米两个廿世纪一世纪12小时' COLLATE utf8mb4_general_ci,'ik','[{"output":"all"},{"additional_args":[{"ik_mode":"max_word"}]}]') AS tokens;
+tokens
+{"tokens": [{"米": 1}, {"公斤": 1}, {"个": 1}, {"一世纪": 1}, {"两": 1}, {"两个": 1}, {"时": 1}, {"12": 1}, {"世": 2}, {"斤": 1}, {"平方米": 1}, {"纪": 2}, {"廿": 1}, {"小时": 1}, {"一": 3}, {"一世": 1}, {"方": 1}, {"平方": 1}, {"世纪": 2}], "doc_len": 24}
+SELECT TOKENIZE('南京市,长江大桥。alpha-beta _C++ 中华人民共和国' COLLATE utf8mb4_general_ci,'ik','[{"output":"all"},{"additional_args":[{"ik_mode":"max_word"}]}]') AS tokens;
+tokens
+{"tokens": [{"长江大桥": 1}, {"共和国": 1}, {"人民共和国": 1}, {"中华人民": 1}, {"c": 1}, {"南京市": 1}, {"共和": 1}, {"南京": 1}, {"国": 1}, {"alpha": 1}, {"中华": 1}, {"中华人民共和国": 1}, {"长江": 1}, {"c++": 1}, {"市": 1}, {"华人": 1}, {"alpha-beta": 1}, {"人民": 1}, {"beta": 1}, {"大桥": 1}], "doc_len": 20}
+SELECT TOKENIZE('😀𠀀漢かな한글éÉßİａｂＣ' COLLATE utf8mb4_general_ci,'ik','[{"output":"all"},{"additional_args":[{"ik_mode":"max_word"}]}]') AS tokens;
+tokens
+{"tokens": [{"な": 1}, {"한": 1}, {"글": 1}, {"か": 1}, {"ａｂｃ": 1}, {"漢": 1}], "doc_len": 6}
+SELECT TOKENIZE(CONVERT(CONCAT('数据库',CHAR(0),'alpha 全文索引') USING utf8mb4) COLLATE utf8mb4_general_ci,'ik','[{"output":"all"},{"additional_args":[{"ik_mode":"max_word"}]}]') AS tokens;
+tokens
+{"tokens": [{"数据": 1}, {"索引": 1}, {"alpha": 1}, {"全文": 1}, {"数据库": 1}, {"全文索引": 1}, {"库": 1}], "doc_len": 7}
+SELECT TOKENIZE('...   ' COLLATE utf8mb4_general_ci,'ik','[{"output":"all"},{"additional_args":[{"ik_mode":"max_word"}]}]') AS tokens;
+tokens
+{"tokens": [], "doc_len": 0}
+SELECT TOKENIZE(REPEAT('alpha beta 数据库全文索引 南京市长江大桥 ',70) COLLATE utf8mb4_general_ci,'ik','[{"output":"all"},{"additional_args":[{"ik_mode":"max_word"}]}]') AS tokens;
+tokens
+{"tokens": [{"数据": 70}, {"据": 70}, {"南京": 70}, {"市长": 70}, {"市": 70}, {"alpha": 70}, {"长江": 70}, {"桥": 70}, {"长江大桥": 70}, {"南京市": 70}, {"全文索引": 70}, {"全": 70}, {"长": 70}, {"引": 70}, {"江": 70}, {"数据库": 70}, {"索": 70}, {"全文": 70}, {"文": 70}, {"南": 70}, {"库": 140}, {"京": 70}, {"大": 70}, {"数": 70}, {"索引": 70}, {"大桥": 70}, {"beta": 70}], "doc_len": 1960}
+SELECT TOKENIZE(REPEAT('中华人民共和国人民大会堂一公斤',100) COLLATE utf8mb4_general_ci,'ik','[{"output":"all"},{"additional_args":[{"ik_mode":"max_word"}]}]') AS tokens;
+tokens
+{"tokens": [{"人民共和国": 100}, {"大会堂": 100}, {"国人": 100}, {"人民大会堂": 100}, {"中华人民": 100}, {"共和": 100}, {"人民": 200}, {"斤": 100}, {"中华": 100}, {"中华人民共和国": 100}, {"公斤": 100}, {"大会": 100}, {"共和国": 100}, {"一": 100}, {"华人": 100}, {"中": 99}, {"会堂": 100}, {"人民大会": 100}], "doc_len": 1899}
+SELECT TOKENIZE(CONCAT(REPEAT('甲',1001),' alpha 数据库 ',REPEAT('南京市长江大桥 ',101)) COLLATE utf8mb4_general_ci,'ik','[{"output":"all"},{"additional_args":[{"ik_mode":"max_word"}]}]') AS tokens;
+tokens
+{"tokens": [{"数据": 1}, {"据": 1}, {"甲": 2002}, {"南京": 101}, {"市长": 101}, {"市": 101}, {"alpha": 1}, {"长江": 101}, {"桥": 101}, {"长江大桥": 101}, {"南京市": 101}, {"长": 101}, {"江": 101}, {"数据库": 1}, {"南": 101}, {"库": 2}, {"京": 101}, {"大": 101}, {"数": 1}, {"大桥": 101}], "doc_len": 3322}
+SELECT TOKENIZE('alpha beta gamma delta epsilon zeta eta theta iota kappa' COLLATE utf8mb4_unicode_ci,'ik','[{"output":"all"},{"additional_args":[{"ik_mode":"max_word"}]}]') AS tokens;
+tokens
+{"tokens": [{"delta": 1}, {"eta": 1}, {"kappa": 1}, {"alpha": 1}, {"iota": 1}, {"gamma": 1}, {"beta": 1}, {"epsilon": 1}, {"theta": 1}, {"zeta": 1}], "doc_len": 10}
+SELECT TOKENIZE('研究生命起源 南京市长江大桥 中华人民共和国人民大会堂' COLLATE utf8mb4_unicode_ci,'ik','[{"output":"all"},{"additional_args":[{"ik_mode":"max_word"}]}]') AS tokens;
+tokens
+{"tokens": [{"中华": 1}, {"生命": 1}, {"人民共和国": 1}, {"大桥": 1}, {"人民大会堂": 1}, {"长江大桥": 1}, {"人民大会": 1}, {"共和": 1}, {"中华人民": 1}, {"华人": 1}, {"市长": 1}, {"起源": 1}, {"南京市": 1}, {"研究生": 1}, {"大会": 1}, {"中华人民共和国": 1}, {"南京": 1}, {"国人": 1}, {"大会堂": 1}, {"会堂": 1}, {"人民": 2}, {"研究": 1}, {"共和国": 1}, {"长江": 1}], "doc_len": 25}
+SELECT TOKENIZE('一公斤一平方米两个廿世纪一世纪12小时' COLLATE utf8mb4_unicode_ci,'ik','[{"output":"all"},{"additional_args":[{"ik_mode":"max_word"}]}]') AS tokens;
+tokens
+{"tokens": [{"方": 1}, {"斤": 1}, {"平方": 1}, {"两个": 1}, {"廿": 1}, {"一世": 1}, {"一世纪": 1}, {"世": 2}, {"12": 1}, {"世纪": 2}, {"米": 1}, {"平方米": 1}, {"两": 1}, {"个": 1}, {"时": 1}, {"公斤": 1}, {"一": 3}, {"纪": 2}, {"小时": 1}], "doc_len": 24}
+SELECT TOKENIZE('南京市,长江大桥。alpha-beta _C++ 中华人民共和国' COLLATE utf8mb4_unicode_ci,'ik','[{"output":"all"},{"additional_args":[{"ik_mode":"max_word"}]}]') AS tokens;
+tokens
+{"tokens": [{"中华": 1}, {"市": 1}, {"alpha-beta": 1}, {"人民共和国": 1}, {"大桥": 1}, {"alpha": 1}, {"长江大桥": 1}, {"共和": 1}, {"中华人民": 1}, {"华人": 1}, {"国": 1}, {"南京市": 1}, {"c++": 1}, {"中华人民共和国": 1}, {"beta": 1}, {"南京": 1}, {"人民": 1}, {"c": 1}, {"共和国": 1}, {"长江": 1}], "doc_len": 20}
+SELECT TOKENIZE('😀𠀀漢かな한글éÉßİａｂＣ' COLLATE utf8mb4_unicode_ci,'ik','[{"output":"all"},{"additional_args":[{"ik_mode":"max_word"}]}]') AS tokens;
+tokens
+{"tokens": [{"ａｂｃ": 1}, {"か": 1}, {"な": 1}, {"漢": 1}, {"글": 1}, {"한": 1}], "doc_len": 6}
+SELECT TOKENIZE(CONVERT(CONCAT('数据库',CHAR(0),'alpha 全文索引') USING utf8mb4) COLLATE utf8mb4_unicode_ci,'ik','[{"output":"all"},{"additional_args":[{"ik_mode":"max_word"}]}]') AS tokens;
+tokens
+{"tokens": [{"库": 1}, {"索引": 1}, {"alpha": 1}, {"数据": 1}, {"数据库": 1}, {"全文索引": 1}, {"全文": 1}], "doc_len": 7}
+SELECT TOKENIZE('...   ' COLLATE utf8mb4_unicode_ci,'ik','[{"output":"all"},{"additional_args":[{"ik_mode":"max_word"}]}]') AS tokens;
+tokens
+{"tokens": [], "doc_len": 0}
+SELECT TOKENIZE(REPEAT('alpha beta 数据库全文索引 南京市长江大桥 ',70) COLLATE utf8mb4_unicode_ci,'ik','[{"output":"all"},{"additional_args":[{"ik_mode":"max_word"}]}]') AS tokens;
+tokens
+{"tokens": [{"南京市": 70}, {"长": 70}, {"引": 70}, {"索": 70}, {"京": 70}, {"beta": 70}, {"大": 70}, {"索引": 70}, {"数": 70}, {"全文": 70}, {"市": 70}, {"库": 140}, {"全文索引": 70}, {"长江": 70}, {"桥": 70}, {"市长": 70}, {"数据库": 70}, {"江": 70}, {"据": 70}, {"alpha": 70}, {"南京": 70}, {"数据": 70}, {"大桥": 70}, {"长江大桥": 70}, {"南": 70}, {"全": 70}, {"文": 70}], "doc_len": 1960}
+SELECT TOKENIZE(REPEAT('中华人民共和国人民大会堂一公斤',100) COLLATE utf8mb4_unicode_ci,'ik','[{"output":"all"},{"additional_args":[{"ik_mode":"max_word"}]}]') AS tokens;
+tokens
+{"tokens": [{"大会堂": 100}, {"中华人民": 100}, {"公斤": 100}, {"人民大会": 100}, {"大会": 100}, {"会堂": 100}, {"共和国": 100}, {"中华": 100}, {"共和": 100}, {"人民": 200}, {"一": 100}, {"人民共和国": 100}, {"斤": 100}, {"人民大会堂": 100}, {"中华人民共和国": 100}, {"中": 99}, {"国人": 100}, {"华人": 100}], "doc_len": 1899}
+SELECT TOKENIZE(CONCAT(REPEAT('甲',1001),' alpha 数据库 ',REPEAT('南京市长江大桥 ',101)) COLLATE utf8mb4_unicode_ci,'ik','[{"output":"all"},{"additional_args":[{"ik_mode":"max_word"}]}]') AS tokens;
+tokens
+{"tokens": [{"南京市": 101}, {"长": 101}, {"京": 101}, {"大": 101}, {"数": 1}, {"市": 101}, {"库": 2}, {"长江": 101}, {"桥": 101}, {"市长": 101}, {"数据库": 1}, {"江": 101}, {"据": 1}, {"alpha": 1}, {"甲": 2002}, {"南京": 101}, {"数据": 1}, {"大桥": 101}, {"长江大桥": 101}, {"南": 101}], "doc_len": 3322}

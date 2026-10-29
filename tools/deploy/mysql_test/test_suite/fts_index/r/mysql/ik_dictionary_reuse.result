@@ -1,0 +1,132 @@
+SET NAMES utf8mb4;
+SET ob_query_timeout=100000000;
+DROP DATABASE IF EXISTS fts_ik_dictionary_reuse;
+CREATE DATABASE fts_ik_dictionary_reuse;
+USE fts_ik_dictionary_reuse;
+CREATE TABLE digits(n INT PRIMARY KEY);
+INSERT INTO digits VALUES(0),(1),(2),(3),(4),(5),(6),(7),(8),(9);
+CREATE TABLE docs(id INT PRIMARY KEY,body LONGTEXT COLLATE utf8mb4_bin);
+INSERT INTO docs SELECT a.n+10*b.n+100*c.n, CASE MOD(a.n+10*b.n+100*c.n,8) WHEN 0 THEN NULL WHEN 1 THEN '' WHEN 2 THEN '南京市长江大桥 一公斤 两平方米 OceanBase' WHEN 3 THEN CONCAT('数据库',CHAR(0),'全文索引😀𠀀') WHEN 4 THEN '单齿额定升降能力 底下人 粘骨膜分离器' WHEN 5 THEN '一一列举 零元 廿世纪 tokenizer index' WHEN 6 THEN REPEAT('南京市长江大桥 数据库 一个一公斤 ',1100) ELSE 'Alpha éÉ ßİ かな 한글 﫿' END FROM digits a,digits b,digits c WHERE a.n+10*b.n+100*c.n<513;
+CREATE TABLE smart LIKE docs;
+INSERT INTO smart SELECT * FROM docs;
+CREATE TABLE incremental LIKE docs;
+ALTER TABLE incremental ADD FULLTEXT INDEX ft(body) WITH PARSER ik;
+INSERT INTO incremental SELECT * FROM docs;
+ALTER TABLE docs ADD FULLTEXT INDEX ft(body) WITH PARSER ik;
+ALTER TABLE smart ADD FULLTEXT INDEX ft(body) WITH PARSER ik PARSER_PROPERTIES=(ik_mode="smart");
+SELECT COUNT(*),SUM(id),BIT_XOR(CRC32(CONCAT(id,':',ROUND(MATCH(body) AGAINST('南京市长江大桥'),8)))) AS checksum FROM docs WHERE MATCH(body) AGAINST('南京市长江大桥');
+COUNT(*)	SUM(id)	checksum
+128	32768	3072263275
+SELECT COUNT(*),SUM(id),BIT_XOR(CRC32(CONCAT(id,':',ROUND(MATCH(body) AGAINST('数据库 全文索引'),8)))) AS checksum FROM docs WHERE MATCH(body) AGAINST('数据库 全文索引');
+COUNT(*)	SUM(id)	checksum
+128	32832	3072263275
+SELECT COUNT(*),SUM(id),BIT_XOR(CRC32(CONCAT(id,':',ROUND(MATCH(body) AGAINST('一公斤 两平方米'),8)))) AS checksum FROM docs WHERE MATCH(body) AGAINST('一公斤 两平方米');
+COUNT(*)	SUM(id)	checksum
+128	32768	3072263275
+SELECT COUNT(*),SUM(id),BIT_XOR(CRC32(CONCAT(id,':',ROUND(MATCH(body) AGAINST('单齿额定升降能力 底下人'),8)))) AS checksum FROM docs WHERE MATCH(body) AGAINST('单齿额定升降能力 底下人');
+COUNT(*)	SUM(id)	checksum
+64	16384	1722337634
+SELECT COUNT(*),SUM(id),BIT_XOR(CRC32(CONCAT(id,':',ROUND(MATCH(body) AGAINST('一一列举 廿世纪'),8)))) AS checksum FROM docs WHERE MATCH(body) AGAINST('一一列举 廿世纪');
+COUNT(*)	SUM(id)	checksum
+64	16448	1722337634
+SELECT COUNT(*),SUM(id),BIT_XOR(CRC32(CONCAT(id,':',ROUND(MATCH(body) AGAINST('alpha tokenizer index'),8)))) AS checksum FROM docs WHERE MATCH(body) AGAINST('alpha tokenizer index');
+COUNT(*)	SUM(id)	checksum
+128	33024	883362459
+SELECT COUNT(*),SUM(id),BIT_XOR(CRC32(CONCAT(id,':',ROUND(MATCH(body) AGAINST('é ßİ かな 한글'),8)))) AS checksum FROM docs WHERE MATCH(body) AGAINST('é ßİ かな 한글');
+COUNT(*)	SUM(id)	checksum
+64	16576	3291694459
+SELECT COUNT(*),SUM(id),BIT_XOR(CRC32(CONCAT(id,':',ROUND(MATCH(body) AGAINST('😀𠀀'),8)))) AS checksum FROM docs WHERE MATCH(body) AGAINST('😀𠀀');
+COUNT(*)	SUM(id)	checksum
+0	NULL	0
+SELECT COUNT(*),SUM(id),BIT_XOR(CRC32(CONCAT(id,':',ROUND(MATCH(body) AGAINST('missingzxqv'),8)))) AS checksum FROM docs WHERE MATCH(body) AGAINST('missingzxqv');
+COUNT(*)	SUM(id)	checksum
+0	NULL	0
+SELECT COUNT(*),SUM(id),BIT_XOR(CRC32(CONCAT(id,':',ROUND(MATCH(body) AGAINST('南京市长江大桥'),8)))) AS checksum FROM incremental WHERE MATCH(body) AGAINST('南京市长江大桥');
+COUNT(*)	SUM(id)	checksum
+128	32768	3072263275
+SELECT COUNT(*),SUM(id),BIT_XOR(CRC32(CONCAT(id,':',ROUND(MATCH(body) AGAINST('数据库 全文索引'),8)))) AS checksum FROM incremental WHERE MATCH(body) AGAINST('数据库 全文索引');
+COUNT(*)	SUM(id)	checksum
+128	32832	3072263275
+SELECT COUNT(*),SUM(id),BIT_XOR(CRC32(CONCAT(id,':',ROUND(MATCH(body) AGAINST('一公斤 两平方米'),8)))) AS checksum FROM incremental WHERE MATCH(body) AGAINST('一公斤 两平方米');
+COUNT(*)	SUM(id)	checksum
+128	32768	3072263275
+SELECT COUNT(*),SUM(id),BIT_XOR(CRC32(CONCAT(id,':',ROUND(MATCH(body) AGAINST('单齿额定升降能力 底下人'),8)))) AS checksum FROM incremental WHERE MATCH(body) AGAINST('单齿额定升降能力 底下人');
+COUNT(*)	SUM(id)	checksum
+64	16384	1722337634
+SELECT COUNT(*),SUM(id),BIT_XOR(CRC32(CONCAT(id,':',ROUND(MATCH(body) AGAINST('一一列举 廿世纪'),8)))) AS checksum FROM incremental WHERE MATCH(body) AGAINST('一一列举 廿世纪');
+COUNT(*)	SUM(id)	checksum
+64	16448	1722337634
+SELECT COUNT(*),SUM(id),BIT_XOR(CRC32(CONCAT(id,':',ROUND(MATCH(body) AGAINST('alpha tokenizer index'),8)))) AS checksum FROM incremental WHERE MATCH(body) AGAINST('alpha tokenizer index');
+COUNT(*)	SUM(id)	checksum
+128	33024	883362459
+SELECT COUNT(*),SUM(id),BIT_XOR(CRC32(CONCAT(id,':',ROUND(MATCH(body) AGAINST('é ßİ かな 한글'),8)))) AS checksum FROM incremental WHERE MATCH(body) AGAINST('é ßİ かな 한글');
+COUNT(*)	SUM(id)	checksum
+64	16576	1376764921
+SELECT COUNT(*),SUM(id),BIT_XOR(CRC32(CONCAT(id,':',ROUND(MATCH(body) AGAINST('😀𠀀'),8)))) AS checksum FROM incremental WHERE MATCH(body) AGAINST('😀𠀀');
+COUNT(*)	SUM(id)	checksum
+0	NULL	0
+SELECT COUNT(*),SUM(id),BIT_XOR(CRC32(CONCAT(id,':',ROUND(MATCH(body) AGAINST('missingzxqv'),8)))) AS checksum FROM incremental WHERE MATCH(body) AGAINST('missingzxqv');
+COUNT(*)	SUM(id)	checksum
+0	NULL	0
+SELECT COUNT(*),SUM(id),BIT_XOR(CRC32(CONCAT(id,':',ROUND(MATCH(body) AGAINST('南京市长江大桥'),8)))) AS checksum FROM smart WHERE MATCH(body) AGAINST('南京市长江大桥');
+COUNT(*)	SUM(id)	checksum
+128	32768	3072263275
+SELECT COUNT(*),SUM(id),BIT_XOR(CRC32(CONCAT(id,':',ROUND(MATCH(body) AGAINST('数据库 全文索引'),8)))) AS checksum FROM smart WHERE MATCH(body) AGAINST('数据库 全文索引');
+COUNT(*)	SUM(id)	checksum
+128	32832	3072263275
+SELECT COUNT(*),SUM(id),BIT_XOR(CRC32(CONCAT(id,':',ROUND(MATCH(body) AGAINST('一公斤 两平方米'),8)))) AS checksum FROM smart WHERE MATCH(body) AGAINST('一公斤 两平方米');
+COUNT(*)	SUM(id)	checksum
+128	32768	3072263275
+SELECT COUNT(*),SUM(id),BIT_XOR(CRC32(CONCAT(id,':',ROUND(MATCH(body) AGAINST('单齿额定升降能力 底下人'),8)))) AS checksum FROM smart WHERE MATCH(body) AGAINST('单齿额定升降能力 底下人');
+COUNT(*)	SUM(id)	checksum
+64	16384	1722337634
+SELECT COUNT(*),SUM(id),BIT_XOR(CRC32(CONCAT(id,':',ROUND(MATCH(body) AGAINST('一一列举 廿世纪'),8)))) AS checksum FROM smart WHERE MATCH(body) AGAINST('一一列举 廿世纪');
+COUNT(*)	SUM(id)	checksum
+64	16448	1722337634
+SELECT COUNT(*),SUM(id),BIT_XOR(CRC32(CONCAT(id,':',ROUND(MATCH(body) AGAINST('alpha tokenizer index'),8)))) AS checksum FROM smart WHERE MATCH(body) AGAINST('alpha tokenizer index');
+COUNT(*)	SUM(id)	checksum
+128	33024	883362459
+SELECT COUNT(*),SUM(id),BIT_XOR(CRC32(CONCAT(id,':',ROUND(MATCH(body) AGAINST('é ßİ かな 한글'),8)))) AS checksum FROM smart WHERE MATCH(body) AGAINST('é ßİ かな 한글');
+COUNT(*)	SUM(id)	checksum
+64	16576	3291694459
+SELECT COUNT(*),SUM(id),BIT_XOR(CRC32(CONCAT(id,':',ROUND(MATCH(body) AGAINST('😀𠀀'),8)))) AS checksum FROM smart WHERE MATCH(body) AGAINST('😀𠀀');
+COUNT(*)	SUM(id)	checksum
+0	NULL	0
+SELECT COUNT(*),SUM(id),BIT_XOR(CRC32(CONCAT(id,':',ROUND(MATCH(body) AGAINST('missingzxqv'),8)))) AS checksum FROM smart WHERE MATCH(body) AGAINST('missingzxqv');
+COUNT(*)	SUM(id)	checksum
+0	NULL	0
+UPDATE docs SET body='数据库 两公斤 missingzxqv' WHERE MOD(id,17)=0;
+DELETE FROM docs WHERE MOD(id,19)=0;
+ALTER TABLE docs DROP INDEX ft;
+ALTER TABLE docs ADD FULLTEXT INDEX ft(body) WITH PARSER ik PARSER_PROPERTIES=(ik_mode="smart");
+SELECT COUNT(*),SUM(id),BIT_XOR(CRC32(CONCAT(id,':',ROUND(MATCH(body) AGAINST('南京市长江大桥'),8)))) AS checksum FROM docs WHERE MATCH(body) AGAINST('南京市长江大桥');
+COUNT(*)	SUM(id)	checksum
+113	28730	2511017624
+SELECT COUNT(*),SUM(id),BIT_XOR(CRC32(CONCAT(id,':',ROUND(MATCH(body) AGAINST('数据库 全文索引'),8)))) AS checksum FROM docs WHERE MATCH(body) AGAINST('数据库 全文索引');
+COUNT(*)	SUM(id)	checksum
+142	36441	2893111403
+SELECT COUNT(*),SUM(id),BIT_XOR(CRC32(CONCAT(id,':',ROUND(MATCH(body) AGAINST('一公斤 两平方米'),8)))) AS checksum FROM docs WHERE MATCH(body) AGAINST('一公斤 两平方米');
+COUNT(*)	SUM(id)	checksum
+113	28730	2870745278
+SELECT COUNT(*),SUM(id),BIT_XOR(CRC32(CONCAT(id,':',ROUND(MATCH(body) AGAINST('单齿额定升降能力 底下人'),8)))) AS checksum FROM docs WHERE MATCH(body) AGAINST('单齿额定升降能力 底下人');
+COUNT(*)	SUM(id)	checksum
+57	14612	3507407598
+SELECT COUNT(*),SUM(id),BIT_XOR(CRC32(CONCAT(id,':',ROUND(MATCH(body) AGAINST('一一列举 廿世纪'),8)))) AS checksum FROM docs WHERE MATCH(body) AGAINST('一一列举 廿世纪');
+COUNT(*)	SUM(id)	checksum
+57	14437	3943485434
+SELECT COUNT(*),SUM(id),BIT_XOR(CRC32(CONCAT(id,':',ROUND(MATCH(body) AGAINST('alpha tokenizer index'),8)))) AS checksum FROM docs WHERE MATCH(body) AGAINST('alpha tokenizer index');
+COUNT(*)	SUM(id)	checksum
+115	29507	968702348
+SELECT COUNT(*),SUM(id),BIT_XOR(CRC32(CONCAT(id,':',ROUND(MATCH(body) AGAINST('é ßİ かな 한글'),8)))) AS checksum FROM docs WHERE MATCH(body) AGAINST('é ßİ かな 한글');
+COUNT(*)	SUM(id)	checksum
+58	15070	3115607551
+SELECT COUNT(*),SUM(id),BIT_XOR(CRC32(CONCAT(id,':',ROUND(MATCH(body) AGAINST('😀𠀀'),8)))) AS checksum FROM docs WHERE MATCH(body) AGAINST('😀𠀀');
+COUNT(*)	SUM(id)	checksum
+0	NULL	0
+SELECT COUNT(*),SUM(id),BIT_XOR(CRC32(CONCAT(id,':',ROUND(MATCH(body) AGAINST('missingzxqv'),8)))) AS checksum FROM docs WHERE MATCH(body) AGAINST('missingzxqv');
+COUNT(*)	SUM(id)	checksum
+29	7582	2257744195
+SELECT COUNT(*),SUM(id),BIT_XOR(CRC32(CONCAT(id,':',ROUND(MATCH(body) AGAINST('两公斤 missingzxqv'),8)))) AS checksum FROM docs WHERE MATCH(body) AGAINST('两公斤 missingzxqv');
+COUNT(*)	SUM(id)	checksum
+29	7582	50542686
+DROP DATABASE fts_ik_dictionary_reuse;

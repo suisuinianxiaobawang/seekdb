@@ -422,6 +422,7 @@ ObTextRetrievalDaaTTokenIter::ObTextRetrievalDaaTTokenIter()
     relevance_(),
     doc_id_(),
     cmp_func_(nullptr),
+    id_batch_end_(false),
     is_inited_(false)
 {
 }
@@ -463,6 +464,7 @@ int ObTextRetrievalDaaTTokenIter::init(const ObTextRetrievalScanIterParam &iter_
 
 void ObTextRetrievalDaaTTokenIter::reuse()
 {
+  id_batch_end_ = false;
   cur_idx_ = -1;
   count_ = 0;
   token_iter_->reuse();
@@ -470,6 +472,7 @@ void ObTextRetrievalDaaTTokenIter::reuse()
 
 void ObTextRetrievalDaaTTokenIter::reset()
 {
+  id_batch_end_ = false;
   relevance_.reset();
   doc_id_.reset();
   token_iter_->reset();
@@ -500,6 +503,29 @@ int ObTextRetrievalDaaTTokenIter::get_next_row() {
       if (OB_FAIL(save_relevances_and_docids())) {
       }
     } else if (OB_FAIL(save_docids())) {
+    }
+  }
+  return ret;
+}
+
+int ObTextRetrievalDaaTTokenIter::get_docid_batch(const ObDocIdExt *&ids, int64_t &count)
+{
+  int ret = OB_SUCCESS;
+  ids = nullptr;
+  count = 0;
+  if (OB_UNLIKELY(!is_inited_)) {
+    ret = OB_NOT_INIT;
+  } else if (id_batch_end_) {
+    ret = OB_ITER_END;
+  } else if ((cur_idx_ < 0 || cur_idx_ >= count_) && OB_FAIL(get_next_row())) {
+    id_batch_end_ = OB_ITER_END == ret;
+  }
+  if (OB_SUCC(ret)) {
+    if (OB_UNLIKELY(cur_idx_ < 0 || cur_idx_ >= count_)) {
+      ret = OB_ERR_UNEXPECTED;
+    } else {
+      ids = &doc_id_[cur_idx_];
+      count = count_ - cur_idx_;
     }
   }
   return ret;

@@ -39,6 +39,7 @@ namespace storage
 class ObStopWordChecker;
 class ObFTDictHub;
 class ObAddWord;
+class IKParserState;
 
 #define FTS_BUILD_IN_PARSER_LIST                                                                   \
   FT_PARSER_TYPE(FTP_SPACE, space)                                                                 \
@@ -134,7 +135,7 @@ private:
 class ObFTParseHelper final
 {
 public:
-  ObFTParseHelper();
+  explicit ObFTParseHelper(bool reuse_parser = false);
   ~ObFTParseHelper();
 
   /**
@@ -219,7 +220,8 @@ private:
       const char *fulltext,
       const int64_t fulltext_len,
       common::ObIAllocator &allocator,
-      ObAddWord &add_word);
+      ObAddWord &add_word,
+      IKParserState **ik_parser_state);
   int set_add_word_flag(const ObIFTParserDesc &ftparser_desc);
 private:
   common::ObIAllocator *allocator_;
@@ -227,6 +229,8 @@ private:
   ObFTParser parser_name_;
   ObAddWordFlag add_word_flag_;
   ObFTParserProperty parser_property_;
+  const bool reuse_parser_;
+  mutable IKParserState *ik_parser_state_;
   bool is_inited_;
 
 private:
