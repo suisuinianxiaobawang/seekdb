@@ -30,10 +30,10 @@ class Session {
     bool block_comment = false;
     bool running = true;
 
-    void execute() {
+    void execute(std::string_view sql) {
         try {
-            if (mini::Parser(statement).kind() == mini::Kind::End) return;
-            auto result = db.execute(statement);
+            if (mini::Parser(sql).kind() == mini::Kind::End) return;
+            auto result = db.execute(sql);
             if (result.query) {
                 std::cout << "RESULT\t" << result.row_count << '\t' << result.columns.size() << '\n';
                 write_row(result.columns);
@@ -67,6 +67,15 @@ public:
                 return;
             }
         }
+        // A complete, unquoted SQL line needs no per-character buffering.
+        if (statement.empty() && !block_comment && line.ends_with(';') &&
+            line.find(';') == line.size() - 1 && line.find('\'') == line.npos &&
+            line.find('"') == line.npos && line.find('`') == line.npos &&
+            line.find('#') == line.npos && line.find("--") == line.npos &&
+            line.find("/*") == line.npos) {
+            execute(line.substr(0, line.size() - 1));
+            return;
+        }
         if (statement.empty()) statement.reserve(line.size());
         for (size_t i = 0; i < line.size(); ++i) {
             char c = line[i];
@@ -87,7 +96,7 @@ public:
                 ++i;
                 if (!statement.empty()) statement += ' ';
             } else if (c == ';') {
-                execute();
+                execute(statement);
                 statement.clear();
             } else {
                 if (c == '\'' || c == '"' || c == '`') quote = c;
@@ -102,7 +111,7 @@ public:
         while (running && std::getline(std::cin, line)) read_line(line);
         if (running && (!statement.empty() || block_comment)) {
             if (block_comment) statement += "/*";
-            execute();
+            execute(statement);
         }
         db.close();
     }

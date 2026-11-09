@@ -194,18 +194,28 @@ class Database {
             else if (t.columns[i].type == Type::Varchar) row.fields[i] = data.string();
         }
     }
-    static std::vector<Value> copy_row(const Table& t, const Row& row) {
-        std::vector<Value> values;
-        values.reserve(t.columns.size());
+    static void encode_update(std::string& out, const Table& t, const Row& row, int64_t key,
+                              const std::vector<const Value*>& replacements,
+                              const std::vector<float>* replacement_vector) {
+        out.clear();
+        put(out, Op::Put);
+        put(out, t.id);
+        put(out, key);
+        if (replacement_vector) {
+            out.append(reinterpret_cast<const char*>(replacement_vector->data()),
+                       replacement_vector->size() * sizeof(float));
+        } else out.append(row.vector);
         for (size_t i = 0; i < t.columns.size(); ++i) {
-            if (t.columns[i].type == Type::Vector) {
-                std::vector<float> data(t.columns[i].size);
-                std::memcpy(data.data(), row.vector.data(), row.vector.size());
-                values.emplace_back(std::move(data));
-            } else if (t.columns[i].type == Type::Bigint) values.emplace_back(std::get<int64_t>(row.fields[i]));
-            else values.emplace_back(std::string(std::get<std::string_view>(row.fields[i])));
+            if (i == t.primary || t.columns[i].type == Type::Vector) continue;
+            const auto* replacement = replacements[i];
+            if (t.columns[i].type == Type::Bigint) {
+                put(out, replacement ? std::get<int64_t>(*replacement) : std::get<int64_t>(row.fields[i]));
+            } else {
+                auto text = replacement ? std::string_view(std::get<std::string>(*replacement))
+                                        : std::get<std::string_view>(row.fields[i]);
+                put_string(out, text);
+            }
         }
-        return values;
     }
     static std::vector<Filter> where(Parser& p, const Table& t) {
         std::vector<Filter> filters;
@@ -226,24 +236,43 @@ class Database {
     }
     enum class Read { None, Vector, Fields };
     template <class Visitor>
-    void matching(const Table& t, const std::vector<Filter>& filters, Read read, Visitor visitor) {
+    void matching(const Table& t, const std::vector<Filter>& filters, Read read, Visitor visitor,
+                  bool descending = false) {
+        int64_t low = INT64_MIN;
+        int64_t high = INT64_MAX;
+        bool fields = read == Read::Fields;
+        for (const auto& filter : filters) {
+            if (filter.column != t.primary) {
+                fields = true;
+                continue;
+            }
+            auto key = std::get<int64_t>(filter.expected);
+            switch (filter.op) {
+                case Compare::Eq: low = std::max(low, key); high = std::min(high, key); break;
+                case Compare::Lt:
+                    if (key == INT64_MIN) return;
+                    high = std::min(high, key - 1);
+                    break;
+                case Compare::Le: high = std::min(high, key); break;
+                case Compare::Gt:
+                    if (key == INT64_MAX) return;
+                    low = std::max(low, key + 1);
+                    break;
+                case Compare::Ge: low = std::max(low, key); break;
+            }
+        }
+        if (low > high) return;
         auto vector_bytes = vector_size(t);
         Row row;
         auto visit = [&](int64_t key, uint64_t offset) {
-            bool fields = read == Read::Fields || !filters.empty();
             if (fields || read == Read::Vector) decode(t, offset, vector_bytes, row, fields);
-            for (const auto& filter : filters) if (!filter.match(row)) return true;
+            for (const auto& filter : filters)
+                if (filter.column != t.primary && !filter.match(row)) return true;
             return visitor(key, offset, row);
         };
-        for (const auto& filter : filters) {
-            if (filter.column == t.primary && filter.op == Compare::Eq) {
-                auto key = std::get<int64_t>(filter.expected);
-                auto offset = t.find(key);
-                if (offset) visit(key, offset);
-                return;
-            }
-        }
-        t.visit(visit);
+        if (low == high) {
+            if (auto offset = t.find(low)) visit(low, offset);
+        } else t.visit(visit, low, high, descending);
     }
 
     // Store only row references. The mapped record remains the source of vector bytes.
@@ -408,7 +437,13 @@ class Database {
             p.need("(");
             for (size_t i = 0; i < order.size(); ++i) {
                 if (i) p.need(",");
-                values[order[i]] = value(p, t.columns[order[i]]);
+                auto index = order[i];
+                const auto& column = t.columns[index];
+                if (column.type == Type::Vector) {
+                    auto& slot = values[index];
+                    if (!std::holds_alternative<std::vector<float>>(slot)) slot.emplace<std::vector<float>>();
+                    p.vector(column.size, std::get<std::vector<float>>(slot));
+                } else values[index] = value(p, column);
             }
             p.need(")");
             auto key = std::get<int64_t>(values[t.primary]);
@@ -437,6 +472,16 @@ class Database {
         auto filters = where(p, t);
         p.finish();
         std::map<int64_t, uint64_t> staged;
+        std::vector<const Value*> replacements;
+        const std::vector<float>* replacement_vector = nullptr;
+        if (!deleting) {
+            replacements.resize(t.columns.size());
+            for (const auto& [column, v] : updates) {
+                if (auto* vec = std::get_if<std::vector<float>>(&v)) replacement_vector = vec;
+                else replacements[column] = &v;
+            }
+        }
+        std::string bytes;
         matching(t, filters, deleting ? Read::None : Read::Fields, [&](int64_t key, uint64_t, const Row& row) {
             if (deleting) {
                 auto bytes = record_header(Op::Delete, t.id);
@@ -444,9 +489,8 @@ class Database {
                 log.append(bytes);
                 staged.emplace(key, 0);
             } else {
-                auto values = copy_row(t, row);
-                for (const auto& [column, v] : updates) values[column] = v;
-                staged.emplace(key, log.append(encode(t, values)));
+                encode_update(bytes, t, row, key, replacements, replacement_vector);
+                staged.emplace(key, log.append(bytes));
             }
             return true;
         });
@@ -582,15 +626,15 @@ class Database {
             }
         };
 
-        bool ordered_by_primary = order && !order->distance && order->column == t.primary && !descending;
+        bool ordered_by_primary = order && !order->distance && order->column == t.primary;
         size_t columns = result.columns.size();
         if (!order || ordered_by_primary) {
             size_t count = 0;
             if (filters.empty() && t.pending.empty()) count = std::min<uint64_t>(limit, t.rows.size());
             else matching(t, filters, Read::None,
-                          [&](int64_t, uint64_t, const Row&) { return ++count < limit; });
+                          [&](int64_t, uint64_t, const Row&) { return ++count < limit; }, descending);
             result.row_count = count;
-            result.emit = [this, &t, filters = std::move(filters), count, columns,
+            result.emit = [this, &t, filters = std::move(filters), count, columns, descending,
                            project = std::move(project)](const Result::Emit& emit) {
                 if (!count) return;
                 Row row;
@@ -600,7 +644,7 @@ class Database {
                     project(key, offset, 0, row, values);
                     emit(values);
                     return --remaining > 0;
-                });
+                }, descending);
             };
             return result;
         }
@@ -617,6 +661,7 @@ class Database {
         std::vector<Hit> hits;
         bool sorted_column = !order->distance && order->column != t.primary;
         bool use_heap = limit != UINT64_MAX;
+        if (use_heap) hits.reserve(std::min<uint64_t>(limit, 64));
         auto consider = [&](Hit hit) {
             if (!use_heap) hits.push_back(hit);
             else if (hits.size() < limit) {
@@ -640,9 +685,16 @@ class Database {
             const char* data = log.view(0, log.size()).data();
             const auto& target = order->distance->target;
             const auto calculate = distance_function();
+            double cutoff = std::numeric_limits<double>::infinity();
+            int64_t cutoff_key = 0;
             for (const auto& entry : *candidates) {
                 double squared = calculate(data + entry.offset + vector_start, target.data(), target.size());
+                if (squared > cutoff || (squared == cutoff && entry.key >= cutoff_key)) continue;
                 consider({entry.key, entry.offset, squared});
+                if (!descending && use_heap && hits.size() == limit) {
+                    cutoff = std::get<double>(hits.front().sort);
+                    cutoff_key = hits.front().key;
+                }
             }
         } else if (!candidates) {
             Read read = sorted_column ? Read::Fields : order->distance ? Read::Vector : Read::None;

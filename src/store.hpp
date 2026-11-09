@@ -5,6 +5,7 @@
 #include <fcntl.h>
 #include <filesystem>
 #include <functional>
+#include <iterator>
 #include <map>
 #include <set>
 #include <system_error>
@@ -71,18 +72,32 @@ struct Table {
         auto row = rows.find(key);
         return row == rows.end() ? 0 : row->second;
     }
-    template <class Visitor> void visit(Visitor visitor) const {
-        auto row = rows.begin();
-        auto change = pending.begin();
-        while (row != rows.end() || change != pending.end()) {
-            if (change == pending.end() || (row != rows.end() && row->first < change->first)) {
-                if (!visitor(row->first, row->second)) return;
-                ++row;
-            } else {
-                if (row != rows.end() && row->first == change->first) ++row;
-                if (change->second && !visitor(change->first, change->second)) return;
-                ++change;
+    template <class Visitor>
+    void visit(Visitor visitor, int64_t low, int64_t high, bool descending) const {
+        auto begin = [low](const auto& index) {
+            return low == INT64_MIN ? index.begin() : index.lower_bound(low);
+        };
+        auto end = [high](const auto& index) {
+            return high == INT64_MAX ? index.end() : index.upper_bound(high);
+        };
+        auto walk = [&](auto row, auto row_end, auto change, auto change_end, auto before) {
+            while (row != row_end || change != change_end) {
+                if (change == change_end || (row != row_end && before(row->first, change->first))) {
+                    if (!visitor(row->first, row->second)) return;
+                    ++row;
+                } else {
+                    if (row != row_end && row->first == change->first) ++row;
+                    if (change->second && !visitor(change->first, change->second)) return;
+                    ++change;
+                }
             }
+        };
+        if (descending) {
+            walk(std::make_reverse_iterator(end(rows)), std::make_reverse_iterator(begin(rows)),
+                 std::make_reverse_iterator(end(pending)), std::make_reverse_iterator(begin(pending)),
+                 std::greater<int64_t>{});
+        } else {
+            walk(begin(rows), end(rows), begin(pending), end(pending), std::less<int64_t>{});
         }
     }
 };

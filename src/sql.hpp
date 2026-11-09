@@ -171,21 +171,26 @@ public:
         if (n <= 0 || n > std::numeric_limits<uint32_t>::max()) invalid("Invalid column size");
         return static_cast<uint32_t>(n);
     }
-    std::vector<float> vector(uint32_t dimension) {
+    void vector(uint32_t dimension, std::vector<float>& result) {
         if (kind() == Kind::String) {
             auto literal = string();
             Parser nested(literal);
             if (!nested.is("[")) invalid("Expected vector literal");
-            auto result = nested.vector(dimension);
+            nested.vector(dimension, result);
             nested.finish();
-            return result;
+            return;
         }
         if (!accept("[")) invalid("Expected vector");
-        std::vector<float> result;
+        result.clear();
         if (!accept("]")) {
+            if (result.capacity() == 0) result.reserve(std::min<size_t>(dimension, 2048));
             do {
                 if (kind() != Kind::Number || result.size() >= dimension) invalid("Invalid vector");
                 auto text = take().text;
+                if (text.size() == 1 && digit(text.front())) {
+                    result.push_back(static_cast<float>(text.front() - '0'));
+                    continue;
+                }
                 if (text.starts_with('+')) text.remove_prefix(1);
                 float value;
 #ifndef __APPLE__
@@ -216,6 +221,10 @@ public:
             need("]");
         }
         if (result.size() != dimension) invalid("Wrong vector dimension");
+    }
+    std::vector<float> vector(uint32_t dimension) {
+        std::vector<float> result;
+        vector(dimension, result);
         return result;
     }
 };

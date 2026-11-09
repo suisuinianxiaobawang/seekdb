@@ -37,6 +37,11 @@
       "id": "u5",
       "role": "student",
       "content": "你按照题目要求来"
+    },
+    {
+      "id": "u6",
+      "role": "student",
+      "content": "那你再优化五轮"
     }
   ],
   "experiments": [
@@ -120,6 +125,80 @@
       "source": "agent_tool",
       "command": "clang++ -O1 -g -std=c++20 -ffp-contract=off -fsanitize=address,undefined -fno-omit-frame-pointer src/main.cpp",
       "output": "使用 AddressSanitizer 和 UndefinedBehaviorSanitizer 构建后，10 项本机回归全部通过。"
+    },
+    {
+      "id": "followup-r8",
+      "source": "agent_tool",
+      "change": "重新测量已推送的第八轮版本作为本轮基线。",
+      "setup": "同一台 macOS arm64，10000 行、128 维、1000 个查询。每个版本独立运行三次。",
+      "output": "{\"rounds\":[{\"write_ms\":1690.35,\"query_ms\":366.59,\"data_bytes\":5371708},{\"write_ms\":1675.59,\"query_ms\":375.07,\"data_bytes\":5371708},{\"write_ms\":1674.29,\"query_ms\":375.87,\"data_bytes\":5371708}],\"median\":{\"write_ms\":1675.59,\"query_ms\":375.07,\"data_bytes\":5371708}}"
+    },
+    {
+      "id": "followup-r9",
+      "source": "agent_tool",
+      "change": "比较候选距离和主键阈值，再决定是否访问 TopK 堆。",
+      "setup": "同一台 macOS arm64，10000 行、128 维、1000 个查询。每个版本独立运行三次。",
+      "output": "{\"rounds\":[{\"write_ms\":1674.65,\"query_ms\":346.11,\"data_bytes\":5371708},{\"write_ms\":1670.66,\"query_ms\":350.21,\"data_bytes\":5371708},{\"write_ms\":1787.42,\"query_ms\":351.86,\"data_bytes\":5371708}],\"median\":{\"write_ms\":1674.65,\"query_ms\":350.21,\"data_bytes\":5371708}}"
+    },
+    {
+      "id": "followup-r10",
+      "source": "agent_tool",
+      "change": "尝试用距离下界提前停止。查询耗时中位数比第九轮高，撤回此实现。",
+      "setup": "同一台 macOS arm64，10000 行、128 维、1000 个查询。每个版本独立运行三次。",
+      "output": "{\"rounds\":[{\"write_ms\":1660.48,\"query_ms\":378.44,\"data_bytes\":5371708},{\"write_ms\":1663.95,\"query_ms\":385.57,\"data_bytes\":5371708},{\"write_ms\":1694.13,\"query_ms\":387.51,\"data_bytes\":5371708}],\"median\":{\"write_ms\":1663.95,\"query_ms\":385.57,\"data_bytes\":5371708}}"
+    },
+    {
+      "id": "followup-r11b",
+      "source": "agent_tool",
+      "change": "复用向量解析缓冲区。该试验还测试了 SIMD 循环展开，查询收益在波动范围内，最终撤回展开。",
+      "setup": "同一台 macOS arm64，10000 行、128 维、1000 个查询。每个版本独立运行三次。",
+      "output": "{\"rounds\":[{\"write_ms\":1700.22,\"query_ms\":345.39,\"data_bytes\":5371708},{\"write_ms\":1671.53,\"query_ms\":351.47,\"data_bytes\":5371708},{\"write_ms\":1670.65,\"query_ms\":353.37,\"data_bytes\":5371708}],\"median\":{\"write_ms\":1671.53,\"query_ms\":351.47,\"data_bytes\":5371708}}"
+    },
+    {
+      "id": "followup-r12",
+      "source": "agent_tool",
+      "change": "使用主键范围及正反向遍历。覆盖边界键、事务覆盖和删除。",
+      "setup": "同一台 macOS arm64，10000 行、128 维、1000 个查询。每个版本独立运行三次。",
+      "output": "{\"rounds\":[{\"write_ms\":1664.5,\"query_ms\":345.47,\"data_bytes\":5371708},{\"write_ms\":1664.15,\"query_ms\":350.42,\"data_bytes\":5371708},{\"write_ms\":1682.45,\"query_ms\":349.91,\"data_bytes\":5371708}],\"median\":{\"write_ms\":1664.5,\"query_ms\":349.91,\"data_bytes\":5371708}}"
+    },
+    {
+      "id": "followup-r13",
+      "source": "agent_tool",
+      "change": "复用更新行的编码缓冲区，直接复制未修改字段的字节。",
+      "setup": "同一台 macOS arm64，10000 行、128 维、1000 个查询。每个版本独立运行三次。",
+      "output": "{\"rounds\":[{\"write_ms\":1671.61,\"query_ms\":344.92,\"data_bytes\":5371708},{\"write_ms\":1668.7,\"query_ms\":352.9,\"data_bytes\":5371708},{\"write_ms\":1674.32,\"query_ms\":353.04,\"data_bytes\":5371708}],\"median\":{\"write_ms\":1671.61,\"query_ms\":352.9,\"data_bytes\":5371708}}"
+    },
+    {
+      "id": "followup-r13-final",
+      "source": "agent_tool",
+      "change": "采用完整、无引号和注释的单行 SQL 直接解析，作为第十轮替代方案，合并五轮改动后复测。",
+      "setup": "同一台 macOS arm64，10000 行、128 维、1000 个查询。每个版本独立运行三次。",
+      "output": "{\"rounds\":[{\"write_ms\":1603.9,\"query_ms\":337.68,\"data_bytes\":5371708},{\"write_ms\":1610.76,\"query_ms\":343.18,\"data_bytes\":5371708},{\"write_ms\":1621.47,\"query_ms\":343.92,\"data_bytes\":5371708}],\"median\":{\"write_ms\":1610.76,\"query_ms\":343.18,\"data_bytes\":5371708}}"
+    },
+    {
+      "id": "maintenance-r8",
+      "source": "agent_tool",
+      "command": "python3 tests/benchmark.py --maintenance --dimensions 512 --rounds 3",
+      "setup": "10000 行，512 维整数向量和 256 字符文本。核对 1000 条范围查询及一次全表更新。",
+      "output": "{\"rounds\":[{\"integer_write_ms\":951.85,\"range_ms\":214.63,\"update_ms\":12.14},{\"integer_write_ms\":954.88,\"range_ms\":213.94,\"update_ms\":12.34},{\"integer_write_ms\":960.58,\"range_ms\":210.91,\"update_ms\":10.74}],\"median\":{\"integer_write_ms\":954.88,\"range_ms\":213.94,\"update_ms\":12.14}}"
+    },
+    {
+      "id": "maintenance-final",
+      "source": "agent_tool",
+      "command": "python3 tests/benchmark.py --maintenance --dimensions 512 --rounds 3",
+      "setup": "10000 行，512 维整数向量和 256 字符文本。核对 1000 条范围查询及一次全表更新。",
+      "output": "{\"rounds\":[{\"integer_write_ms\":898.92,\"range_ms\":19.13,\"update_ms\":8.48},{\"integer_write_ms\":996.65,\"range_ms\":18.65,\"update_ms\":8.85},{\"integer_write_ms\":901.31,\"range_ms\":17.25,\"update_ms\":8.1}],\"median\":{\"integer_write_ms\":901.31,\"range_ms\":18.65,\"update_ms\":8.48}}"
+    },
+    {
+      "id": "followup-amd64",
+      "source": "agent_tool",
+      "output": "Linux x86_64 镜像在断网、2 CPU、64 MiB 内存、禁用交换下通过 12 项回归。约 94 MiB 的数据文件在强制终止后恢复全部 12000 条已提交记录，过滤 TopK 仍为 [1, 3, 5]。"
+    },
+    {
+      "id": "followup-full-oracle",
+      "source": "agent_tool",
+      "command": "python3 tests/benchmark.py --check 1000",
+      "output": "第 13 轮的 1000 条 TopK 查询全部与 Python 独立计算的主键顺序和欧氏距离一致。包含 500 条带等值过滤的查询。启用 ASan 和 UBSan 后，另有 12 项回归全部通过。"
     }
   ],
   "retrospective": [
@@ -130,6 +209,10 @@
     {
       "role": "agent",
       "content": "如果缓冲区中只有部分语句记录，回滚时可以缩短缓冲区。若已经刷到文件，则必须截断文件并保留同一事务此前成功的修改。新增了跨 256 KiB 的失败语句测试。"
+    },
+    {
+      "role": "agent",
+      "content": "距离下界在数学上可用于提前结束，但在本轮均匀生成的 128 维向量上，增加下界检查后的总耗时更高。保留堆前的比较，撤回循环内的下界检查。"
     }
   ],
   "limitations": [

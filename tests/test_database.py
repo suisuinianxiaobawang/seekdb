@@ -100,6 +100,25 @@ class DatabaseTests(unittest.TestCase):
         self.assertEqual(sql("SELECT id FROM t ORDER BY id LIMIT 0;")[1], [])
         self.assertEqual(sql("SELECT id FROM t WHERE id = 5;")[1], [])
 
+    def test_primary_key_ranges_with_pending_rows(self):
+        sql = self.client.sql
+        sql(DDL)
+        sql("INSERT INTO docs VALUES (-9223372036854775808,1,'a',[1,1]),"
+            "(-1,1,'b',[1,1]),(0,1,'c',[1,1]),(2,1,'d',[1,1]),"
+            "(9223372036854775807,1,'e',[1,1]);")
+        self.assertEqual(sql("SELECT id FROM docs WHERE id < -9223372036854775808;")[1], [])
+        self.assertEqual(sql("SELECT id FROM docs WHERE id > 9223372036854775807;")[1], [])
+        self.assertEqual(sql("SELECT id FROM docs WHERE id=2 AND id<2;")[1], [])
+        sql("BEGIN;")
+        self.assertEqual(sql("DELETE FROM docs WHERE id>-2 AND id<1;"), 2)
+        sql("INSERT INTO docs VALUES (1,2,'new',[0,0]),(-1,3,'back',[3,3]);")
+        query = "SELECT id FROM docs WHERE id>=-1 AND id<=2 AND g>=1 ORDER BY id DESC LIMIT 2;"
+        self.assertEqual(sql(query)[1], [["2"], ["1"]])
+        self.assertEqual(sql("SELECT id FROM docs WHERE id>=-1 AND id<=2 ORDER BY id;")[1],
+                         [["-1"], ["1"], ["2"]])
+        sql("ROLLBACK;")
+        self.assertEqual(sql(query)[1], [["2"], ["0"]])
+
     def test_order_and_filtered_topk(self):
         sql = self.client.sql
         self.assertEqual(sql(DDL), 0)
@@ -116,6 +135,27 @@ class DatabaseTests(unittest.TestCase):
         self.assertEqual(sql("SELECT id FROM docs ORDER BY L2_DISTANCE(v,[0,0]) LIMIT 2;")[1],
                          [["4"], ["2"]])
         self.assertEqual(sql(".mode exact"), 0)
+
+    def test_indexed_topk_preserves_prefix_ties_and_tail(self):
+        sql = self.client.sql
+        self.assertEqual(sql("CREATE TABLE t(id BIGINT PRIMARY KEY,g BIGINT,v VECTOR(129));"), 0)
+        zeros = [0] * 129
+
+        def literal(first, last):
+            return "[" + ",".join(map(str, [first] + zeros[1:-1] + [last])) + "]"
+
+        values = ",".join(f"({i},{group},{literal(first, last)})" for i, group, first, last in
+                          [(5, 1, 2, 0), (2, 1, -2, 0), (1, 1, 2, 1),
+                           (3, 1, 10, 0), (4, 0, 0, 0)])
+        self.assertEqual(sql("INSERT INTO t VALUES" + values + ";"), 5)
+        self.assertEqual(sql("CREATE VECTOR INDEX vi ON t(v);"), 0)
+        target = literal(0, 0)
+        self.assertEqual(sql(f"SELECT id FROM t WHERE g=1 ORDER BY L2_DISTANCE(v,{target}) LIMIT 1;")[1],
+                         [["2"]])
+        self.assertEqual(sql(f"SELECT id FROM t WHERE g=1 ORDER BY L2_DISTANCE(v,{target}) DESC LIMIT 1;")[1],
+                         [["3"]])
+        self.assertEqual(sql(f"SELECT id FROM t ORDER BY L2_DISTANCE(v,{target}) LIMIT 3;")[1],
+                         [["4"], ["2"], ["5"]])
 
     def test_float32(self):
         sql = self.client.sql
