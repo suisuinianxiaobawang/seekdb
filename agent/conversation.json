@@ -1,0 +1,140 @@
+{
+  "title": "MiniVectorDB 加赛开发记录",
+  "synthetic": false,
+  "scope": "当前会话的节选。学生发言逐字记录。Agent 的实现、验证和分析单独标记。省略账户信息及与开发无关的工具输出。",
+  "conversations": [
+    {
+      "id": "u1",
+      "role": "student",
+      "content": "加赛了，看完题目之后给我完成一下，一定要完成的很好"
+    },
+    {
+      "id": "u2",
+      "role": "student",
+      "content": "在safari"
+    },
+    {
+      "id": "u3",
+      "role": "student",
+      "content": "GitHub 上的公开 seekdb fork"
+    },
+    {
+      "id": "u4",
+      "role": "student",
+      "content": "先不着急提交，先优化八遍再提交。任务未完成之前不黑屏"
+    },
+    {
+      "id": "a1",
+      "role": "agent",
+      "content": "功能用例必须全部通过才计分，所以我先做 SQL、事务和崩溃恢复，再用实测结果决定向量检索的优化方式。"
+    },
+    {
+      "id": "a2",
+      "role": "agent",
+      "content": "例如先提交 A，再在新事务里删除 A、插入 B，收到成功响应后直接杀进程但不发送 COMMIT。你预计重启后能查到哪些记录，为什么？"
+    },
+    {
+      "id": "u5",
+      "role": "student",
+      "content": "你按照题目要求来"
+    }
+  ],
+  "experiments": [
+    {
+      "id": "local-0",
+      "source": "agent_tool",
+      "setup": "macOS arm64。独立生成 10000 条 128 维向量，每批 100 条，1000 次 TopK，半数使用等值过滤。重复三次。",
+      "change": "初版逐行写入日志，按主键遍历记录进行精确扫描。",
+      "output": "{\"rounds\":[{\"write_ms\":1817.04,\"query_ms\":499.96,\"data_bytes\":5371708},{\"write_ms\":1771.51,\"query_ms\":709.0,\"data_bytes\":5371708},{\"write_ms\":1800.51,\"query_ms\":514.99,\"data_bytes\":5371708}],\"median\":{\"write_ms\":1800.51,\"query_ms\":514.99,\"data_bytes\":5371708}}"
+    },
+    {
+      "id": "local-1",
+      "source": "agent_tool",
+      "setup": "macOS arm64。独立生成 10000 条 128 维向量，每批 100 条，1000 次 TopK，半数使用等值过滤。重复三次。",
+      "change": "将行追加暂存到有上限的缓冲区，降低批量写入系统调用数量。",
+      "output": "{\"rounds\":[{\"write_ms\":1717.35,\"query_ms\":509.12,\"data_bytes\":5371708},{\"write_ms\":1709.06,\"query_ms\":513.0,\"data_bytes\":5371708},{\"write_ms\":1719.81,\"query_ms\":512.33,\"data_bytes\":5371708}],\"median\":{\"write_ms\":1717.35,\"query_ms\":512.33,\"data_bytes\":5371708}}"
+    },
+    {
+      "id": "local-2",
+      "source": "agent_tool",
+      "setup": "macOS arm64。独立生成 10000 条 128 维向量，每批 100 条，1000 次 TopK，半数使用等值过滤。重复三次。",
+      "change": "避免复制完整输入行，常见数字解析使用栈缓冲，去掉关键字比较的字符串分配。",
+      "output": "{\"rounds\":[{\"write_ms\":1777.71,\"query_ms\":504.85,\"data_bytes\":5371708},{\"write_ms\":1708.89,\"query_ms\":523.37,\"data_bytes\":5371708},{\"write_ms\":1700.21,\"query_ms\":516.9,\"data_bytes\":5371708}],\"median\":{\"write_ms\":1708.89,\"query_ms\":516.9,\"data_bytes\":5371708}}"
+    },
+    {
+      "id": "local-3",
+      "source": "agent_tool",
+      "setup": "macOS arm64。独立生成 10000 条 128 维向量，每批 100 条，1000 次 TopK，半数使用等值过滤。重复三次。",
+      "change": "距离计算使用 NEON 或 AVX，保留标量实现，先转成 float64 再做差。",
+      "output": "{\"rounds\":[{\"write_ms\":1700.53,\"query_ms\":495.98,\"data_bytes\":5371708},{\"write_ms\":1694.15,\"query_ms\":504.25,\"data_bytes\":5371708},{\"write_ms\":1715.86,\"query_ms\":508.58,\"data_bytes\":5371708}],\"median\":{\"write_ms\":1700.53,\"query_ms\":504.25,\"data_bytes\":5371708}}"
+    },
+    {
+      "id": "local-4",
+      "source": "agent_tool",
+      "setup": "macOS arm64。独立生成 10000 条 128 维向量，每批 100 条，1000 次 TopK，半数使用等值过滤。重复三次。",
+      "change": "用平方距离维护 TopK，输出匹配的距离表达式时复用平方值。",
+      "output": "{\"rounds\":[{\"write_ms\":1709.07,\"query_ms\":497.69,\"data_bytes\":5371708},{\"write_ms\":1797.85,\"query_ms\":532.57,\"data_bytes\":5371708},{\"write_ms\":1731.14,\"query_ms\":502.5,\"data_bytes\":5371708}],\"median\":{\"write_ms\":1731.14,\"query_ms\":502.5,\"data_bytes\":5371708}}"
+    },
+    {
+      "id": "local-5",
+      "source": "agent_tool",
+      "setup": "macOS arm64。独立生成 10000 条 128 维向量，每批 100 条，1000 次 TopK，半数使用等值过滤。重复三次。",
+      "change": "小表的向量索引按磁盘位置排列，并为一个等值列缓存候选集合。",
+      "output": "{\"rounds\":[{\"write_ms\":1915.87,\"query_ms\":519.59,\"data_bytes\":5371708},{\"write_ms\":1762.07,\"query_ms\":424.13,\"data_bytes\":5371708},{\"write_ms\":1736.84,\"query_ms\":422.67,\"data_bytes\":5371708}],\"median\":{\"write_ms\":1762.07,\"query_ms\":424.13,\"data_bytes\":5371708}}"
+    },
+    {
+      "id": "local-6",
+      "source": "agent_tool",
+      "setup": "macOS arm64。独立生成 10000 条 128 维向量，每批 100 条，1000 次 TopK，半数使用等值过滤。重复三次。",
+      "change": "普通查询逐行输出，主键升序无需额外排序。",
+      "output": "{\"rounds\":[{\"write_ms\":1736.05,\"query_ms\":416.98,\"data_bytes\":5371708},{\"write_ms\":1781.07,\"query_ms\":441.88,\"data_bytes\":5371708},{\"write_ms\":1748.81,\"query_ms\":422.49,\"data_bytes\":5371708}],\"median\":{\"write_ms\":1748.81,\"query_ms\":422.49,\"data_bytes\":5371708}}"
+    },
+    {
+      "id": "local-7",
+      "source": "agent_tool",
+      "setup": "macOS arm64。独立生成 10000 条 128 维向量，每批 100 条，1000 次 TopK，半数使用等值过滤。重复三次。",
+      "change": "索引按偏移直接访问向量，省去候选记录的通用解码。",
+      "output": "{\"rounds\":[{\"write_ms\":1752.47,\"query_ms\":386.91,\"data_bytes\":5371708},{\"write_ms\":1730.16,\"query_ms\":388.3,\"data_bytes\":5371708},{\"write_ms\":1795.52,\"query_ms\":416.39,\"data_bytes\":5371708}],\"median\":{\"write_ms\":1752.47,\"query_ms\":388.3,\"data_bytes\":5371708}}"
+    },
+    {
+      "id": "local-8",
+      "source": "agent_tool",
+      "setup": "macOS arm64。独立生成 10000 条 128 维向量，每批 100 条，1000 次 TopK，半数使用等值过滤。重复三次。",
+      "change": "将小事务的数据和事务头合并到一次写入后同步。",
+      "output": "{\"rounds\":[{\"write_ms\":1730.08,\"query_ms\":381.01,\"data_bytes\":5371708},{\"write_ms\":1743.63,\"query_ms\":396.13,\"data_bytes\":5371708},{\"write_ms\":1741.63,\"query_ms\":388.12,\"data_bytes\":5371708}],\"median\":{\"write_ms\":1741.63,\"query_ms\":388.12,\"data_bytes\":5371708}}"
+    },
+    {
+      "id": "all-topk",
+      "source": "agent_tool",
+      "command": "python3 tests/benchmark.py --check 1000",
+      "output": "本机 1000 个查询均与 Python 全排序真值一致，含 500 个带过滤查询。核对主键顺序和欧氏距离。"
+    },
+    {
+      "id": "amd64-test",
+      "source": "agent_tool",
+      "setup": "在 Lima 中构建 Linux amd64 镜像，使用 Docker 禁网运行，2 CPU，64 MiB 内存，无交换。",
+      "output": "10 项回归通过。12000 条 2048 维向量生成 98606028 字节的数据文件。未提交删除时强制结束进程，重启后恢复 12000 条记录，过滤 TopK 为 [1, 3, 5]。"
+    },
+    {
+      "id": "sanitizer",
+      "source": "agent_tool",
+      "command": "clang++ -O1 -g -std=c++20 -ffp-contract=off -fsanitize=address,undefined -fno-omit-frame-pointer src/main.cpp",
+      "output": "使用 AddressSanitizer 和 UndefinedBehaviorSanitizer 构建后，10 项本机回归全部通过。"
+    }
+  ],
+  "retrospective": [
+    {
+      "role": "agent",
+      "content": "查询收益主要来自在距离计算前按等值条件筛选，以及用记录偏移直接读取向量。每轮的本机耗时有波动，未把波动解释为确定的性能变化。"
+    },
+    {
+      "role": "agent",
+      "content": "如果缓冲区中只有部分语句记录，回滚时可以缩短缓冲区。若已经刷到文件，则必须截断文件并保留同一事务此前成功的修改。新增了跨 256 KiB 的失败语句测试。"
+    }
+  ],
+  "limitations": [
+    "学生尚未提交对技术机制的独立解释或验证。上述实验和技术解释均来自 Agent 或工具结果。",
+    "本地测试使用自测协议。尚未取得官方公开用例或验证平台性能。",
+    "检索选择精确结果。ann 本地模式使用精确回退。"
+  ]
+}
